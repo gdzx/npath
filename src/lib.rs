@@ -31,115 +31,6 @@ use std::path::{Path, PathBuf};
 const SEP: u8 = b'/';
 const DOT: u8 = b'.';
 
-/// Returns the path up to, but not including, the final `/`.
-///
-/// See [`dirname(3)`](http://man7.org/linux/man-pages/man3/dirname.3.html).
-///
-/// # Differences with [`Path::parent`]
-///
-/// This function:
-/// - performs normalization on the input,
-/// - always returns a path (`/` when [`Path::parent`] returns `None`).
-///
-/// [`Path::parent`]: https://doc.rust-lang.org/src/std/struct.Path.html#method.parent
-///
-/// # Example
-///
-/// ```
-/// use std::path::Path;
-/// use npath::dir_name;
-///
-/// fn main() {
-///     assert_eq!(dir_name("/usr/lib"), Path::new("/usr"));
-///     assert_eq!(dir_name("/usr/"), Path::new("/"));
-///     assert_eq!(dir_name("usr"), Path::new("."));
-///     assert_eq!(dir_name("/"), Path::new("/"));
-///     assert_eq!(dir_name("."), Path::new("."));
-///     assert_eq!(dir_name(".."), Path::new("."));
-/// }
-/// ```
-pub fn dir_name<P: AsRef<Path>>(path: P) -> PathBuf {
-    PathBuf::from(OsString::from_vec(dir_name_vec(
-        path.as_ref().as_os_str().as_bytes(),
-    )))
-}
-
-/// Returns the last path component, following the final `/`.
-///
-/// See [`basename(3)`](http://man7.org/linux/man-pages/man3/basename.3.html).
-///
-/// # Differences with [`Path::file_name`]
-///
-/// This function:
-/// - performs normalization on the input,
-/// - always returns a name (`/`, `.` or `..` where [`Path::file_name`] returns `None`).
-///
-/// [`Path::file_name`]: https://doc.rust-lang.org/src/std/struct.Path.html#method.file_name
-///
-/// # Example
-///
-/// ```
-/// use std::path::Path;
-/// use npath::base_name;
-///
-/// fn main() {
-///     assert_eq!(base_name("/usr/lib"), Path::new("lib"));
-///     assert_eq!(base_name("/usr/"), Path::new("usr"));
-///     assert_eq!(base_name("usr"), Path::new("usr"));
-///     assert_eq!(base_name("/"), Path::new("/"));
-///     assert_eq!(base_name("."), Path::new("."));
-///     assert_eq!(base_name(".."), Path::new(".."));
-/// }
-/// ```
-pub fn base_name<P: AsRef<Path>>(path: P) -> PathBuf {
-    PathBuf::from(OsString::from_vec(base_name_vec(
-        path.as_ref().as_os_str().as_bytes(),
-    )))
-}
-
-/// Returns the shortest equivalent path by pure lexical processing.
-///
-/// It applies the following rules:
-/// 1. replaces multiple `/` with a single one,
-/// 2. eliminates each `.` path name element (the current directory),
-/// 3. eliminates each inner `..` path name element (the parent directory) along
-///    with the non-`..` element that precedes it,
-/// 4. eliminates `..` elements that begin a rooted path,
-///    that is, replace `/..` by `/` at the beginning of a path
-///
-/// # Differences with [`fs::canonicalize`]
-///
-/// This function **does not touch the filesystem, ever**:
-/// - it does not resolve symlinks,
-/// - it does not check if files/directories exists,
-/// - if the given path is relative, it returns a relative path, etc.
-///
-/// If `/a/b` is a symlink to `/d/e`, then `/a/b/../c` is `/d/c` (and not `/a/c` that this
-/// function will return).
-///
-/// [`fs::canonicalize`]: https://doc.rust-lang.org/std/fs/fn.canonicalize.html
-///
-/// # Example
-///
-/// ```
-/// use std::path::Path;
-/// use npath::normalize;
-///
-/// fn main() {
-///     assert_eq!(normalize("usr/lib"), Path::new("usr/lib"));
-///     assert_eq!(normalize("usr//lib"), Path::new("usr/lib"));
-///     assert_eq!(normalize("usr/lib/."), Path::new("usr/lib"));
-///     assert_eq!(normalize("usr/lib/gcc/.."), Path::new("usr/lib"));
-///     assert_eq!(normalize("/../usr/lib"), Path::new("/usr/lib"));
-///     assert_eq!(normalize("/../usr/bin/../././/lib"), Path::new("/usr/lib"));
-/// }
-/// ```
-pub fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
-    PathBuf::from(OsString::from_vec(normalize_vec(
-        path.as_ref().as_os_str().as_bytes(),
-    )))
-}
-
 /// Extension trait for [`PathBuf`].
 ///
 /// [`PathBuf`]: https://doc.rust-lang.org/src/std/struct.PathBuf.html
@@ -194,11 +85,6 @@ pub trait NormPathExt {
     /// See [`base_name`](./fn.base_name.html).
     fn base_name(&self) -> PathBuf;
 
-    /// Returns the directory name of `self`.
-    ///
-    /// See [`dir_name`](./fn.dir_name.html).
-    fn dir_name(&self) -> PathBuf;
-
     /// Creates an owned [`PathBuf`] with `path` appended to `self`.
     ///
     /// See [`NormPathBufExt::append`].
@@ -206,6 +92,11 @@ pub trait NormPathExt {
     /// [`PathBuf`]: https://doc.rust-lang.org/src/std/struct.PathBuf.html
     /// [`NormPathBufExt::append`]: ./trait.NormPathBufExt.html#tymethod.append
     fn concat<P: AsRef<Path>>(&self, path: P) -> PathBuf;
+
+    /// Returns the directory name of `self`.
+    ///
+    /// See [`dir_name`](./fn.dir_name.html).
+    fn dir_name(&self) -> PathBuf;
 
     /// Creates a normalized owned [`PathBuf`] of `self`.
     ///
@@ -220,19 +111,52 @@ impl NormPathExt for Path {
         base_name(self)
     }
 
-    fn dir_name(&self) -> PathBuf {
-        dir_name(self)
-    }
-
     fn concat<P: AsRef<Path>>(&self, path: P) -> PathBuf {
         let mut b = self.to_path_buf();
         b.append(path);
         b
     }
 
+    fn dir_name(&self) -> PathBuf {
+        dir_name(self)
+    }
+
     fn normalize(&self) -> PathBuf {
         normalize(self)
     }
+}
+
+/// Returns the last path component, following the final `/`.
+///
+/// See [`basename(3)`](http://man7.org/linux/man-pages/man3/basename.3.html).
+///
+/// # Differences with [`Path::file_name`]
+///
+/// This function:
+/// - performs normalization on the input,
+/// - always returns a name (`/`, `.` or `..` where [`Path::file_name`] returns `None`).
+///
+/// [`Path::file_name`]: https://doc.rust-lang.org/src/std/struct.Path.html#method.file_name
+///
+/// # Example
+///
+/// ```
+/// use std::path::Path;
+/// use npath::base_name;
+///
+/// fn main() {
+///     assert_eq!(base_name("/usr/lib"), Path::new("lib"));
+///     assert_eq!(base_name("/usr/"), Path::new("usr"));
+///     assert_eq!(base_name("usr"), Path::new("usr"));
+///     assert_eq!(base_name("/"), Path::new("/"));
+///     assert_eq!(base_name("."), Path::new("."));
+///     assert_eq!(base_name(".."), Path::new(".."));
+/// }
+/// ```
+pub fn base_name<P: AsRef<Path>>(path: P) -> PathBuf {
+    PathBuf::from(OsString::from_vec(base_name_vec(
+        path.as_ref().as_os_str().as_bytes(),
+    )))
 }
 
 fn base_name_vec(mut inp: &[u8]) -> Vec<u8> {
@@ -259,6 +183,39 @@ fn base_name_vec(mut inp: &[u8]) -> Vec<u8> {
     inp.to_vec()
 }
 
+/// Returns the path up to, but not including, the final `/`.
+///
+/// See [`dirname(3)`](http://man7.org/linux/man-pages/man3/dirname.3.html).
+///
+/// # Differences with [`Path::parent`]
+///
+/// This function:
+/// - performs normalization on the input,
+/// - always returns a path (`/` when [`Path::parent`] returns `None`).
+///
+/// [`Path::parent`]: https://doc.rust-lang.org/src/std/struct.Path.html#method.parent
+///
+/// # Example
+///
+/// ```
+/// use std::path::Path;
+/// use npath::dir_name;
+///
+/// fn main() {
+///     assert_eq!(dir_name("/usr/lib"), Path::new("/usr"));
+///     assert_eq!(dir_name("/usr/"), Path::new("/"));
+///     assert_eq!(dir_name("usr"), Path::new("."));
+///     assert_eq!(dir_name("/"), Path::new("/"));
+///     assert_eq!(dir_name("."), Path::new("."));
+///     assert_eq!(dir_name(".."), Path::new("."));
+/// }
+/// ```
+pub fn dir_name<P: AsRef<Path>>(path: P) -> PathBuf {
+    PathBuf::from(OsString::from_vec(dir_name_vec(
+        path.as_ref().as_os_str().as_bytes(),
+    )))
+}
+
 fn dir_name_vec(inp: &[u8]) -> Vec<u8> {
     let inp = normalize_vec(&inp);
 
@@ -278,6 +235,49 @@ fn dir_name_vec(inp: &[u8]) -> Vec<u8> {
     }
 
     dir.to_vec()
+}
+
+/// Returns the shortest equivalent path by pure lexical processing.
+///
+/// It applies the following rules:
+/// 1. replaces multiple `/` with a single one,
+/// 2. eliminates each `.` path name element (the current directory),
+/// 3. eliminates each inner `..` path name element (the parent directory) along
+///    with the non-`..` element that precedes it,
+/// 4. eliminates `..` elements that begin a rooted path,
+///    that is, replace `/..` by `/` at the beginning of a path
+///
+/// # Differences with [`fs::canonicalize`]
+///
+/// This function **does not touch the filesystem, ever**:
+/// - it does not resolve symlinks,
+/// - it does not check if files/directories exists,
+/// - if the given path is relative, it returns a relative path, etc.
+///
+/// If `/a/b` is a symlink to `/d/e`, then `/a/b/../c` is `/d/c` (and not `/a/c` that this
+/// function will return).
+///
+/// [`fs::canonicalize`]: https://doc.rust-lang.org/std/fs/fn.canonicalize.html
+///
+/// # Example
+///
+/// ```
+/// use std::path::Path;
+/// use npath::normalize;
+///
+/// fn main() {
+///     assert_eq!(normalize("usr/lib"), Path::new("usr/lib"));
+///     assert_eq!(normalize("usr//lib"), Path::new("usr/lib"));
+///     assert_eq!(normalize("usr/lib/."), Path::new("usr/lib"));
+///     assert_eq!(normalize("usr/lib/gcc/.."), Path::new("usr/lib"));
+///     assert_eq!(normalize("/../usr/lib"), Path::new("/usr/lib"));
+///     assert_eq!(normalize("/../usr/bin/../././/lib"), Path::new("/usr/lib"));
+/// }
+/// ```
+pub fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
+    PathBuf::from(OsString::from_vec(normalize_vec(
+        path.as_ref().as_os_str().as_bytes(),
+    )))
 }
 
 fn normalize_vec(inp: &[u8]) -> Vec<u8> {
@@ -344,7 +344,7 @@ mod tests {
     use super::NormPathExt;
 
     #[test]
-    fn base_test() {
+    fn base_name_test() {
         let cases = vec![
             ("", "."),
             (".", "."),
@@ -386,7 +386,7 @@ mod tests {
     }
 
     #[test]
-    fn dir_test() {
+    fn dir_name_test() {
         let cases = vec![
             ("", "."),
             (".", "."),
