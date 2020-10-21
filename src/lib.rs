@@ -46,19 +46,22 @@ const DOT: u8 = b'.';
 /// # Example
 ///
 /// ```
+/// use std::path::Path;
 /// use npath::dir_name;
 ///
 /// fn main() {
-///     assert_eq!(dir_name("/usr/lib"), "/usr");
-///     assert_eq!(dir_name("/usr/"), "/");
-///     assert_eq!(dir_name("usr"), ".");
-///     assert_eq!(dir_name("/"), "/");
-///     assert_eq!(dir_name("."), ".");
-///     assert_eq!(dir_name(".."), ".");
+///     assert_eq!(dir_name("/usr/lib"), Path::new("/usr"));
+///     assert_eq!(dir_name("/usr/"), Path::new("/"));
+///     assert_eq!(dir_name("usr"), Path::new("."));
+///     assert_eq!(dir_name("/"), Path::new("/"));
+///     assert_eq!(dir_name("."), Path::new("."));
+///     assert_eq!(dir_name(".."), Path::new("."));
 /// }
 /// ```
-pub fn dir_name<P: AsRef<Path>>(path: P) -> OsString {
-    OsString::from_vec(dir_name_vec(path.as_ref().as_os_str().as_bytes()))
+pub fn dir_name<P: AsRef<Path>>(path: P) -> PathBuf {
+    PathBuf::from(OsString::from_vec(dir_name_vec(
+        path.as_ref().as_os_str().as_bytes(),
+    )))
 }
 
 /// Returns the last path component, following the final `/`.
@@ -76,19 +79,22 @@ pub fn dir_name<P: AsRef<Path>>(path: P) -> OsString {
 /// # Example
 ///
 /// ```
+/// use std::path::Path;
 /// use npath::base_name;
 ///
 /// fn main() {
-///     assert_eq!(base_name("/usr/lib"), "lib");
-///     assert_eq!(base_name("/usr/"), "usr");
-///     assert_eq!(base_name("usr"), "usr");
-///     assert_eq!(base_name("/"), "/");
-///     assert_eq!(base_name("."), ".");
-///     assert_eq!(base_name(".."), "..");
+///     assert_eq!(base_name("/usr/lib"), Path::new("lib"));
+///     assert_eq!(base_name("/usr/"), Path::new("usr"));
+///     assert_eq!(base_name("usr"), Path::new("usr"));
+///     assert_eq!(base_name("/"), Path::new("/"));
+///     assert_eq!(base_name("."), Path::new("."));
+///     assert_eq!(base_name(".."), Path::new(".."));
 /// }
 /// ```
-pub fn base_name<P: AsRef<Path>>(path: P) -> OsString {
-    OsString::from_vec(base_name_vec(path.as_ref().as_os_str().as_bytes()))
+pub fn base_name<P: AsRef<Path>>(path: P) -> PathBuf {
+    PathBuf::from(OsString::from_vec(base_name_vec(
+        path.as_ref().as_os_str().as_bytes(),
+    )))
 }
 
 /// Returns the shortest equivalent path by pure lexical processing.
@@ -186,12 +192,12 @@ pub trait NormPathExt {
     /// Returns the base name of `self`.
     ///
     /// See [`base_name`](./fn.base_name.html).
-    fn base_name(&self) -> OsString;
+    fn base_name(&self) -> PathBuf;
 
     /// Returns the directory name of `self`.
     ///
     /// See [`dir_name`](./fn.dir_name.html).
-    fn dir_name(&self) -> OsString;
+    fn dir_name(&self) -> PathBuf;
 
     /// Creates an owned [`PathBuf`] with `path` appended to `self`.
     ///
@@ -210,11 +216,11 @@ pub trait NormPathExt {
 }
 
 impl NormPathExt for Path {
-    fn base_name(&self) -> OsString {
+    fn base_name(&self) -> PathBuf {
         base_name(self)
     }
 
-    fn dir_name(&self) -> OsString {
+    fn dir_name(&self) -> PathBuf {
         dir_name(self)
     }
 
@@ -333,7 +339,6 @@ fn normalize_vec(inp: &[u8]) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use std::ffi::OsStr;
     use std::path::Path;
 
     use super::NormPathExt;
@@ -355,7 +360,7 @@ mod tests {
         ];
 
         for c in cases {
-            assert_eq!(super::base_name(c.0).as_os_str(), OsStr::new(c.1));
+            assert_eq!(super::base_name(c.0).as_os_str(), c.1);
         }
     }
 
@@ -376,7 +381,7 @@ mod tests {
         ];
 
         for c in cases {
-            assert_eq!(Path::new((c.0).0).concat((c.0).1).as_path(), Path::new(c.1));
+            assert_eq!(Path::new((c.0).0).concat((c.0).1).as_os_str(), c.1);
         }
     }
 
@@ -399,7 +404,7 @@ mod tests {
         ];
 
         for c in cases {
-            assert_eq!(super::dir_name(c.0).as_os_str(), OsStr::new(c.1));
+            assert_eq!(super::dir_name(c.0).as_os_str(), c.1);
         }
     }
 
@@ -453,7 +458,7 @@ mod tests {
         ];
 
         for c in cases {
-            assert_eq!(super::normalize(c.0).as_path(), Path::new(c.1));
+            assert_eq!(super::normalize(c.0).as_os_str(), c.1);
         }
     }
 }
