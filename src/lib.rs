@@ -1,28 +1,34 @@
-//! Unix Path Handling Utilities
+//! Normalized Unix Paths
 //!
-//! This library provides:
-//! * path normalization through pure lexical processing (alternative to [`fs::canonicalize`]),
-//! * concatenation of absolute paths (alternative to [`Path::join`] and [`PathBuf::push`]),
-//! * equivalents of POSIX [`dirname(3)`] and [`basename(3)`] functions.
+//! - Pure lexical processing path normalization.
+//! - Concatenation of absolute paths.
+//! - POSIX [`dirname(3)`] and [`basename(3)`] equivalents.
 //!
-//! You might want to look at:
-//! - functions [`dir_name`], [`base_name`] and [`normalize`],
-//! - methods [`NormPathExt::concat`] and [`NormPathBufExt::append`].
+//! # Functions
 //!
-//! [`fs::canonicalize`]: https://doc.rust-lang.org/std/fs/fn.canonicalize.html
+//! | std                       | npath         |
+//! |---------------------------|---------------|
+//! | -                         | [`base_name`] |
+//! | -                         | [`dir_name`]  |
+//! | [`std::fs::canonicalize`] | [`normalize`] |
 //!
-//! [`Path::join`]: https://doc.rust-lang.org/src/std/struct.Path.html#method.join
-//! [`Path::push`]: https://doc.rust-lang.org/src/std/struct.PathBuf.html#method.push
+//! # [`Path`]
+//!
+//! | std                    | npath                      |
+//! |------------------------|----------------------------|
+//! | [`Path::file_name`]    | [`NormPathExt::base_name`] |
+//! | [`Path::join`]         | [`NormPathExt::concat`]    |
+//! | [`Path::parent`]       | [`NormPathExt::dir_name`]  |
+//! | [`Path::canonicalize`] | [`NormPathExt::normalize`] |
+//!
+//! # [`PathBuf`]
+//!
+//! | std                  | npath                      |
+//! |----------------------|----------------------------|
+//! | [`PathBuf::push`]    | [`NormPathBufExt::append`] |
 //!
 //! [`dirname(3)`]: http://man7.org/linux/man-pages/man3/dirname.3.html
 //! [`basename(3)`]: http://man7.org/linux/man-pages/man3/basename.3.html
-//!
-//! [`dir_name`]: ./fn.dir_name.html
-//! [`base_name`]: ./fn.dir_name.html
-//! [`normalize_name`]: ./fn.dir_name.html
-//!
-//! [`NormPathExt::concat`]: ./trait.NormPathExt.html#tymethod.concat
-//! [`NormPathBufExt::append`]: ./trait.NormPathBufExt.html#tymethod.append
 
 use std::ffi::OsString;
 use std::os::unix::prelude::*;
@@ -32,30 +38,25 @@ const SEP: u8 = b'/';
 const DOT: u8 = b'.';
 
 /// Extension trait for [`PathBuf`].
-///
-/// [`PathBuf`]: https://doc.rust-lang.org/src/std/struct.PathBuf.html
 pub trait NormPathBufExt {
     /// Appends `path` to `self`.
     ///
     /// # Differences with [`PathBuf::push`]
     ///
-    /// If `path` is absolute, it doesn't replace the current path.
+    /// If `path` is absolute, it does not replace the current path.
     ///
-    /// [`PathBuf::push`]: https://doc.rust-lang.org/src/std/path/struct.PathBuf.html#method.push
-    ///
-    /// # Examples
+    /// # Example
     ///
     /// ```
     /// use std::path::{Path, PathBuf};
     /// use npath::NormPathBufExt;
     ///
-    /// fn main() {
-    ///     let mut path = PathBuf::from("/usr");
-    ///     path.append("bin");   // relative
-    ///     path.append("/cat");  // absolute
+    /// let mut path = PathBuf::from("/usr");
     ///
-    ///     assert_eq!(path, Path::new("/usr/bin/cat"));
-    /// }
+    /// path.append("bin");  // relative
+    /// path.append("/cat"); // absolute
+    ///
+    /// assert_eq!(path, Path::new("/usr/bin/cat"));
     /// ```
     fn append<P: AsRef<Path>>(&mut self, path: P);
 }
@@ -70,6 +71,7 @@ impl NormPathBufExt for PathBuf {
         } else if !v.is_empty() {
             v.push(SEP);
         }
+
         v.extend(path.as_os_str().as_bytes());
 
         *v = normalize_vec(v);
@@ -77,32 +79,25 @@ impl NormPathBufExt for PathBuf {
 }
 
 /// Extension trait for [`Path`].
-///
-/// [`Path`]: https://doc.rust-lang.org/src/std/struct.Path.html
 pub trait NormPathExt {
     /// Returns the base name of `self`.
     ///
-    /// See [`base_name`](./fn.base_name.html).
+    /// See [`base_name`].
     fn base_name(&self) -> PathBuf;
 
-    /// Creates an owned [`PathBuf`] with `path` appended to `self`.
+    /// Returns `path` appended to `self`.
     ///
     /// See [`NormPathBufExt::append`].
-    ///
-    /// [`PathBuf`]: https://doc.rust-lang.org/src/std/struct.PathBuf.html
-    /// [`NormPathBufExt::append`]: ./trait.NormPathBufExt.html#tymethod.append
     fn concat<P: AsRef<Path>>(&self, path: P) -> PathBuf;
 
     /// Returns the directory name of `self`.
     ///
-    /// See [`dir_name`](./fn.dir_name.html).
+    /// See [`dir_name`].
     fn dir_name(&self) -> PathBuf;
 
-    /// Creates a normalized owned [`PathBuf`] of `self`.
+    /// Returns the normalized equivalent of `self`.
     ///
-    /// See [`normalize`](./fn.normalize.html).
-    ///
-    /// [`PathBuf`]: https://doc.rust-lang.org/src/std/struct.PathBuf.html
+    /// See [`normalize`].
     fn normalize(&self) -> PathBuf;
 }
 
@@ -132,11 +127,9 @@ impl NormPathExt for Path {
 ///
 /// # Differences with [`Path::file_name`]
 ///
-/// This function:
-/// - performs normalization on the input,
-/// - always returns a name (`/`, `.` or `..` where [`Path::file_name`] returns `None`).
-///
-/// [`Path::file_name`]: https://doc.rust-lang.org/src/std/struct.Path.html#method.file_name
+/// - Performs normalization on the input path.
+/// - Always returns a name (`/`, `.`, or `..`, whereas [`Path::file_name`] returns `None`).
+/// - Returns a [`PathBuf`] instead of an [`OsStr`](std::ffi::OsStr).
 ///
 /// # Example
 ///
@@ -144,14 +137,12 @@ impl NormPathExt for Path {
 /// use std::path::Path;
 /// use npath::base_name;
 ///
-/// fn main() {
-///     assert_eq!(base_name("/usr/lib"), Path::new("lib"));
-///     assert_eq!(base_name("/usr/"), Path::new("usr"));
-///     assert_eq!(base_name("usr"), Path::new("usr"));
-///     assert_eq!(base_name("/"), Path::new("/"));
-///     assert_eq!(base_name("."), Path::new("."));
-///     assert_eq!(base_name(".."), Path::new(".."));
-/// }
+/// assert_eq!(base_name("/usr/lib"), Path::new("lib"));
+/// assert_eq!(base_name("/usr/"),    Path::new("usr"));
+/// assert_eq!(base_name("usr"),      Path::new("usr"));
+/// assert_eq!(base_name("/"),        Path::new("/"));
+/// assert_eq!(base_name("."),        Path::new("."));
+/// assert_eq!(base_name(".."),       Path::new(".."));
 /// ```
 pub fn base_name<P: AsRef<Path>>(path: P) -> PathBuf {
     PathBuf::from(OsString::from_vec(base_name_vec(
@@ -159,6 +150,7 @@ pub fn base_name<P: AsRef<Path>>(path: P) -> PathBuf {
     )))
 }
 
+// See <https://golang.org/pkg/path/filepath/#Base>.
 fn base_name_vec(mut inp: &[u8]) -> Vec<u8> {
     if inp.is_empty() {
         return vec![DOT];
@@ -189,11 +181,8 @@ fn base_name_vec(mut inp: &[u8]) -> Vec<u8> {
 ///
 /// # Differences with [`Path::parent`]
 ///
-/// This function:
-/// - performs normalization on the input,
-/// - always returns a path (`/` when [`Path::parent`] returns `None`).
-///
-/// [`Path::parent`]: https://doc.rust-lang.org/src/std/struct.Path.html#method.parent
+/// - Performs normalization on the input path.
+/// - Always returns a path (`/` when [`Path::parent`] returns `None`).
 ///
 /// # Example
 ///
@@ -201,14 +190,12 @@ fn base_name_vec(mut inp: &[u8]) -> Vec<u8> {
 /// use std::path::Path;
 /// use npath::dir_name;
 ///
-/// fn main() {
-///     assert_eq!(dir_name("/usr/lib"), Path::new("/usr"));
-///     assert_eq!(dir_name("/usr/"), Path::new("/"));
-///     assert_eq!(dir_name("usr"), Path::new("."));
-///     assert_eq!(dir_name("/"), Path::new("/"));
-///     assert_eq!(dir_name("."), Path::new("."));
-///     assert_eq!(dir_name(".."), Path::new("."));
-/// }
+/// assert_eq!(dir_name("/usr/lib"), Path::new("/usr"));
+/// assert_eq!(dir_name("/usr/"),    Path::new("/"));
+/// assert_eq!(dir_name("usr"),      Path::new("."));
+/// assert_eq!(dir_name("/"),        Path::new("/"));
+/// assert_eq!(dir_name("."),        Path::new("."));
+/// assert_eq!(dir_name(".."),       Path::new("."));
 /// ```
 pub fn dir_name<P: AsRef<Path>>(path: P) -> PathBuf {
     PathBuf::from(OsString::from_vec(dir_name_vec(
@@ -216,6 +203,7 @@ pub fn dir_name<P: AsRef<Path>>(path: P) -> PathBuf {
     )))
 }
 
+// See <https://golang.org/pkg/path/filepath/#Dir>.
 fn dir_name_vec(inp: &[u8]) -> Vec<u8> {
     let inp = normalize_vec(&inp);
 
@@ -240,24 +228,24 @@ fn dir_name_vec(inp: &[u8]) -> Vec<u8> {
 /// Returns the shortest equivalent path by pure lexical processing.
 ///
 /// It applies the following rules:
-/// 1. replaces multiple `/` with a single one,
-/// 2. eliminates each `.` path name element (the current directory),
-/// 3. eliminates each inner `..` path name element (the parent directory) along
-///    with the non-`..` element that precedes it,
-/// 4. eliminates `..` elements that begin a rooted path,
-///    that is, replace `/..` by `/` at the beginning of a path
 ///
-/// # Differences with [`fs::canonicalize`]
+/// 1. Replace repeated `/` with a single one.
+/// 2. Eliminate `.` path components (the current directory).
+/// 3. Consume inner `..` path components (the parent directory), including components preceded by
+///    a rooted path (replace `/..` by `/`).
+///
+/// # Differences with [`std::fs::canonicalize`]
 ///
 /// This function **does not touch the filesystem, ever**:
-/// - it does not resolve symlinks,
-/// - it does not check if files/directories exists,
-/// - if the given path is relative, it returns a relative path, etc.
 ///
-/// If `/a/b` is a symlink to `/d/e`, then `/a/b/../c` is `/d/c` (and not `/a/c` that this
-/// function will return).
+/// - It does not resolve symlinks.
+/// - It does not check if files/directories exists.
+/// - If the given path is relative, it returns a relative path.
 ///
-/// [`fs::canonicalize`]: https://doc.rust-lang.org/std/fs/fn.canonicalize.html
+/// If `/a/b` is a symlink to `/d/e`, for `/a/b/../c`:
+///
+/// - [`std::fs::canonicalize`] returns `/d/c`.
+/// - [`normalize`] returns `/a/c`.
 ///
 /// # Example
 ///
@@ -265,14 +253,12 @@ fn dir_name_vec(inp: &[u8]) -> Vec<u8> {
 /// use std::path::Path;
 /// use npath::normalize;
 ///
-/// fn main() {
-///     assert_eq!(normalize("usr/lib"), Path::new("usr/lib"));
-///     assert_eq!(normalize("usr//lib"), Path::new("usr/lib"));
-///     assert_eq!(normalize("usr/lib/."), Path::new("usr/lib"));
-///     assert_eq!(normalize("usr/lib/gcc/.."), Path::new("usr/lib"));
-///     assert_eq!(normalize("/../usr/lib"), Path::new("/usr/lib"));
-///     assert_eq!(normalize("/../usr/bin/../././/lib"), Path::new("/usr/lib"));
-/// }
+/// assert_eq!(normalize("usr/lib"),                 Path::new("usr/lib"));
+/// assert_eq!(normalize("usr//lib"),                Path::new("usr/lib"));
+/// assert_eq!(normalize("usr/lib/."),               Path::new("usr/lib"));
+/// assert_eq!(normalize("usr/lib/gcc/.."),          Path::new("usr/lib"));
+/// assert_eq!(normalize("/../usr/lib"),             Path::new("/usr/lib"));
+/// assert_eq!(normalize("/../usr/bin/../././/lib"), Path::new("/usr/lib"));
 /// ```
 pub fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
     PathBuf::from(OsString::from_vec(normalize_vec(
@@ -280,6 +266,7 @@ pub fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
     )))
 }
 
+// See <https://golang.org/pkg/path/filepath/#Clean>.
 fn normalize_vec(inp: &[u8]) -> Vec<u8> {
     let mut out = vec![];
 

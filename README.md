@@ -1,5 +1,4 @@
-Normalized Path Additional Utilities
-====================================
+# Normalized Unix Paths
 
 [![Build Status](https://travis-ci.org/gdzx/npath.svg?branch=master)](https://travis-ci.org/gdzx/npath)
 
@@ -29,14 +28,15 @@ use npath::{NormPathExt, NormPathBufExt};
 
 Algorithms are straight ports from Go's [`path/filepath`] standard library
 (with slight fix to [`filepath.Dir`] for proper POSIX compatiblity with
-[`dirname(3)`]).
+[`dirname(3)`], and without Windows path support).
 
 Normalization routines use Rob Pike's [Lexical File Names in Plan 9 or Getting
-Dot-Dot Right] article.
+Dot-Dot Right] algorithm.
+
+[`dirname(3)`]: http://man7.org/linux/man-pages/man3/dirname.3.html
 
 [`path/filepath`]: https://golang.org/pkg/path/filepath/
 [`filepath.Dir`]: https://golang.org/pkg/path/filepath/#Dir
-[`dirname(3)`]: http://man7.org/linux/man-pages/man3/dirname.3.html
 
 [Lexical File Names in Plan 9 or Getting Dot-Dot Right]: https://9p.io/sys/doc/lexnames.html
 
