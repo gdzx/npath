@@ -63,18 +63,18 @@ pub trait NormPathBufExt {
 
 impl NormPathBufExt for PathBuf {
     fn append<P: AsRef<Path>>(&mut self, path: P) {
+        let base = unsafe { &mut *(self as *mut PathBuf as *mut Vec<u8>) };
         let path = path.as_ref();
-        let v = unsafe { &mut *(self as *mut PathBuf as *mut Vec<u8>) };
 
-        if v.is_empty() && path.as_os_str().is_empty() {
+        if base.is_empty() && path.as_os_str().is_empty() {
             return;
-        } else if !v.is_empty() {
-            v.push(SEP);
+        } else if !base.is_empty() {
+            base.push(SEP);
         }
 
-        v.extend(path.as_os_str().as_bytes());
+        base.extend(path.as_os_str().as_bytes());
 
-        *v = normalize_vec(v);
+        *base = normalize_vec(base);
     }
 }
 
