@@ -127,8 +127,7 @@ impl NormPathExt for Path {
 ///
 /// # Differences with [`Path::file_name`]
 ///
-/// - Performs normalization on the input path.
-/// - Always returns a name (`/`, `.`, or `..`, whereas [`Path::file_name`] returns `None`).
+/// - Always returns a path (`/`, `.`, or `..`, whereas [`Path::file_name`] returns `None`).
 /// - Returns a [`PathBuf`] instead of an [`OsStr`](std::ffi::OsStr).
 ///
 /// # Example
@@ -145,34 +144,41 @@ impl NormPathExt for Path {
 /// assert_eq!(base_name(".."),       Path::new(".."));
 /// ```
 pub fn base_name<P: AsRef<Path>>(path: P) -> PathBuf {
-    PathBuf::from(OsString::from_vec(base_name_vec(
+    PathBuf::from(OsString::from_vec(base_name_from_vec(
         path.as_ref().as_os_str().as_bytes(),
     )))
 }
 
-// See <https://golang.org/pkg/path/filepath/#Base>.
-fn base_name_vec(mut inp: &[u8]) -> Vec<u8> {
-    if inp.is_empty() {
+// See:
+// - <https://golang.org/pkg/path/filepath/#Base>
+// - <https://git.musl-libc.org/cgit/musl/tree/src/misc/basename.c>
+fn base_name_from_vec(path: &[u8]) -> Vec<u8> {
+    if path.is_empty() {
         return vec![DOT];
     }
 
-    while !inp.is_empty() && inp[inp.len() - 1] == SEP {
-        inp = &inp[0..inp.len() - 1]
+    let mut j = path.len();
+
+    // Strip trailing separators
+    while j > 0 && path[j - 1] == SEP {
+        j -= 1;
     }
 
-    let mut i = inp.len() as isize - 1;
-    while i >= 0 && inp[i as usize] != SEP {
+    let mut i = j;
+
+    // Include trailing characters after the last separator
+    while i > 0 && path[i - 1] != SEP {
         i -= 1;
     }
-    if i >= 0 {
-        inp = &inp[i as usize + 1..];
-    }
 
-    if inp.is_empty() {
+    let base = &path[i..j];
+
+    // The path has only separators
+    if base.is_empty() {
         return vec![SEP];
     }
 
-    inp.to_vec()
+    base.to_vec()
 }
 
 /// Returns the path up to, but not including, the final `/`.
@@ -181,7 +187,6 @@ fn base_name_vec(mut inp: &[u8]) -> Vec<u8> {
 ///
 /// # Differences with [`Path::parent`]
 ///
-/// - Performs normalization on the input path.
 /// - Always returns a path (`/` when [`Path::parent`] returns `None`).
 ///
 /// # Example
@@ -198,26 +203,40 @@ fn base_name_vec(mut inp: &[u8]) -> Vec<u8> {
 /// assert_eq!(dir_name(".."),       Path::new("."));
 /// ```
 pub fn dir_name<P: AsRef<Path>>(path: P) -> PathBuf {
-    PathBuf::from(OsString::from_vec(dir_name_vec(
+    PathBuf::from(OsString::from_vec(dir_name_from_vec(
         path.as_ref().as_os_str().as_bytes(),
     )))
 }
 
-// See <https://golang.org/pkg/path/filepath/#Dir>.
-fn dir_name_vec(inp: &[u8]) -> Vec<u8> {
-    let inp = normalize_vec(&inp);
+// See:
+// - <https://golang.org/pkg/path/filepath/#Dir>
+// - <https://git.musl-libc.org/cgit/musl/tree/src/misc/dirname.c>
+fn dir_name_from_vec(path: &[u8]) -> Vec<u8> {
+    let mut i = path.len();
 
-    let mut i = inp.len() as isize - 1;
-
-    while i >= 0 && inp[i as usize] != SEP {
+    // Strip trailing separators ("foo//bar//" -> "foo//bar")
+    while i > 0 && path[i - 1] == SEP {
         i -= 1;
     }
 
-    if i > 0 && inp[i as usize] == SEP {
+    // Strip trailing component ("foo//bar" -> "foo//")
+    while i > 0 && path[i - 1] != SEP {
         i -= 1;
     }
 
-    let dir = &inp[..(i + 1) as usize];
+    // Strip trailing separators again ("foo//" -> "foo")
+    while i > 0 && path[i - 1] == SEP {
+        i -= 1;
+    }
+
+    // dirname of "///foo//" is "/"
+    if i == 0 && path.first() == Some(&SEP) {
+        return vec![SEP];
+    }
+
+    let dir = &path[..i];
+
+    // dirname of "foo//" is "."
     if dir.is_empty() {
         return vec![DOT];
     }
@@ -377,17 +396,20 @@ mod tests {
         let cases = vec![
             ("", "."),
             (".", "."),
+            ("..", "."),
             ("/.", "/"),
             ("/", "/"),
             ("////", "/"),
             ("/foo", "/"),
-            ("x/", "."), // different from Go's `filepath.Dir` buggy behavior ("x/" -> "x")
-            ("x///", "."), // different from Go's `filepath.Dir` buggy behavior ("x///" -> "x")
+            ("x/", "."),   // Go's `filepath.Dir` returns "x"
+            ("x///", "."), // Go's `filepath.Dir` returns "x"
             ("abc", "."),
             ("abc/def", "abc"),
             ("a/b/.x", "a/b"),
             ("a/b/c.", "a/b"),
             ("a/b/c.x", "a/b"),
+            // Unnormalized
+            ("/../x", "/.."),
         ];
 
         for c in cases {
