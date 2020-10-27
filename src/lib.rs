@@ -66,15 +66,15 @@ impl NormPathBufExt for PathBuf {
         let base = unsafe { &mut *(self as *mut PathBuf as *mut Vec<u8>) };
         let path = path.as_ref();
 
-        if base.is_empty() && path.as_os_str().is_empty() {
+        if path.as_os_str().is_empty() || path == Path::new("/") {
             return;
-        } else if !base.is_empty() {
+        }
+
+        if !base.is_empty() && *base.last().unwrap() != SEP && !path.is_absolute() {
             base.push(SEP);
         }
 
         base.extend(path.as_os_str().as_bytes());
-
-        *base = normalize_vec(base);
     }
 }
 
@@ -396,10 +396,10 @@ mod tests {
             (("/", "a"), "/a"),
             (("/", "a/b"), "/a/b"),
             (("/", ""), "/"),
-            (("//", "a"), "/a"),
+            (("//", "a"), "//a"),
             (("/a", "b"), "/a/b"),
             (("a/", "b"), "a/b"),
-            (("a/", ""), "a"),
+            (("a/", ""), "a/"),
             (("", ""), ""),
         ];
 
