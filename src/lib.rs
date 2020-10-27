@@ -286,56 +286,73 @@ pub fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
 }
 
 // See <https://golang.org/pkg/path/filepath/#Clean>.
-fn normalize_vec(inp: &[u8]) -> Vec<u8> {
+fn normalize_vec(path: &[u8]) -> Vec<u8> {
     let mut out = vec![];
 
-    if inp.is_empty() {
+    if path.is_empty() {
         out.push(DOT);
         return out;
     }
 
-    let rooted = inp[0] == SEP;
+    let n = path.len();
+    let rooted = path[0] == SEP;
 
-    let n = inp.len();
+    // Index of next byte to process
+    let mut r = 0;
 
-    let (mut r, mut dotdot) = if rooted {
+    if rooted {
         out.push(SEP);
-        (1, 1)
-    } else {
-        (0, 0)
-    };
+        r = 1;
+    }
 
-    while r < inp.len() {
-        if inp[r] == SEP || (inp[r] == DOT && (r + 1 == n || inp[r + 1] == SEP)) {
+    // Index where ".." backtracking must stop (point either to the leading separator or to a
+    // relative prefix)
+    let mut dotdot = r;
+
+    // Parse each component and update `out`
+    while r < path.len() {
+        if path[r] == SEP || path[r] == DOT && (r + 1 == n || path[r + 1] == SEP) {
+            // Empty or "." component
             r += 1;
-        } else if inp[r] == DOT && inp[r + 1] == DOT && (r + 2 == n || inp[r + 2] == SEP) {
+        } else if path[r] == DOT && path[r + 1] == DOT && (r + 2 == n || path[r + 2] == SEP) {
+            // ".." component
             r += 2;
+
             if out.len() > dotdot {
+                // Backtrack until the previous separator
                 let mut w = out.len() - 1;
+
                 while w > dotdot && out[w] != SEP {
                     w -= 1;
                 }
+
                 out.truncate(w);
             } else if !rooted {
+                // Cannot backtrack, and not rooted, so append ".."
                 if !out.is_empty() {
                     out.push(SEP);
                 }
+
                 out.push(DOT);
                 out.push(DOT);
+
                 dotdot = out.len();
             }
         } else {
+            // Add a separator if needed
             if rooted && out.len() != 1 || !rooted && !out.is_empty() {
                 out.push(SEP);
             }
 
-            while r < n && inp[r] != SEP {
-                out.push(inp[r]);
+            // Copy the regular component
+            while r < n && path[r] != SEP {
+                out.push(path[r]);
                 r += 1;
             }
         }
     }
 
+    // Turn an empty path into "."
     if out.is_empty() {
         out.push(DOT);
     }
