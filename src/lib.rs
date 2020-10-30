@@ -32,7 +32,7 @@
 
 use std::ffi::OsString;
 use std::os::unix::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 const SEP: u8 = b'/';
 const DOT: u8 = b'.';
@@ -280,84 +280,49 @@ fn dir_name_from_vec(path: &[u8]) -> Vec<u8> {
 /// assert_eq!(normalize("/../usr/bin/../././/lib"), PathBuf::from("/usr/lib"));
 /// ```
 pub fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
-    PathBuf::from(OsString::from_vec(normalize_vec(
-        path.as_ref().as_os_str().as_bytes(),
-    )))
-}
+    let path = path.as_ref();
+    let mut stack: Vec<Component> = vec![];
 
-// See <https://golang.org/pkg/path/filepath/#Clean>.
-fn normalize_vec(path: &[u8]) -> Vec<u8> {
-    let mut out = vec![];
-
-    if path.is_empty() {
-        out.push(DOT);
-        return out;
-    }
-
-    let n = path.len();
-    let rooted = path[0] == SEP;
-
-    // Index of next byte to process
-    let mut r = 0;
-
-    if rooted {
-        out.push(SEP);
-        r = 1;
-    }
-
-    // Index where ".." backtracking must stop (point either to the leading separator or to a
-    // relative prefix)
-    let mut dotdot = r;
-
-    // Parse each component and update `out`
-    while r < path.len() {
-        if path[r] == SEP || path[r] == DOT && (r + 1 == n || path[r + 1] == SEP) {
-            // Empty or "." component
-            r += 1;
-        } else if path[r] == DOT && path[r + 1] == DOT && (r + 2 == n || path[r + 2] == SEP) {
-            // ".." component
-            r += 2;
-
-            if out.len() > dotdot {
-                // Backtrack until the previous separator
-                let mut w = out.len() - 1;
-
-                while w > dotdot && out[w] != SEP {
-                    w -= 1;
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir if !stack.is_empty() => match stack.last().unwrap() {
+                Component::ParentDir => stack.push(component),
+                Component::Normal(_) => {
+                    stack.pop();
                 }
-
-                out.truncate(w);
-            } else if !rooted {
-                // Cannot backtrack, and not rooted, so append ".."
-                if !out.is_empty() {
-                    out.push(SEP);
-                }
-
-                out.push(DOT);
-                out.push(DOT);
-
-                dotdot = out.len();
-            }
-        } else {
-            // Add a separator if needed
-            if rooted && out.len() != 1 || !rooted && !out.is_empty() {
-                out.push(SEP);
-            }
-
-            // Copy the regular component
-            while r < n && path[r] != SEP {
-                out.push(path[r]);
-                r += 1;
+                _ => {}
+            },
+            _ => {
+                stack.push(component);
             }
         }
     }
 
     // Turn an empty path into "."
-    if out.is_empty() {
-        out.push(DOT);
+    if stack.is_empty() {
+        return Component::CurDir.as_os_str().into();
     }
 
-    out
+    let mut path = PathBuf::new();
+
+    for component in stack {
+        path.push(component.as_os_str());
+    }
+
+    path
+}
+
+
+    }
+
+
+
+
+
+
+    }
+
 }
 
 #[cfg(test)]
