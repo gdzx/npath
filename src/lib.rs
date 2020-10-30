@@ -312,27 +312,6 @@ mod tests {
     }
 
     #[test]
-    fn relative_join_test() {
-        let cases = vec![
-            (("a", "b"), "a/b"),
-            (("a", ""), "a"),
-            (("", "b"), "b"),
-            (("/", "a"), "/a"),
-            (("/", "a/b"), "/a/b"),
-            (("/", ""), "/"),
-            (("//", "a"), "//a"),
-            (("/a", "b"), "/a/b"),
-            (("a/", "b"), "a/b"),
-            (("a/", ""), "a/"),
-            (("", ""), ""),
-        ];
-
-        for c in cases {
-            assert_eq!(Path::new((c.0).0).relative_join((c.0).1).as_os_str(), c.1);
-        }
-    }
-
-    #[test]
     fn dir_name_test() {
         let cases = vec![
             ("", "."),
@@ -409,6 +388,27 @@ mod tests {
 
         for c in cases {
             assert_eq!(Path::new(c.0).normalize().as_os_str(), c.1);
+        }
+    }
+
+    #[test]
+    fn relative_join_test() {
+        let cases = vec![
+            (("a", "b"), "a/b"),
+            (("a", ""), "a"),
+            (("", "b"), "b"),
+            (("/", "a"), "/a"),
+            (("/", "a/b"), "/a/b"),
+            (("/", ""), "/"),
+            (("//", "a"), "//a"),
+            (("/a", "b"), "/a/b"),
+            (("a/", "b"), "a/b"),
+            (("a/", ""), "a/"),
+            (("", ""), ""),
+        ];
+
+        for c in cases {
+            assert_eq!(Path::new((c.0).0).relative_join((c.0).1).as_os_str(), c.1);
         }
     }
 }
