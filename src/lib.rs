@@ -4,14 +4,6 @@
 //! - Concatenation of absolute paths.
 //! - POSIX [`dirname(3)`] and [`basename(3)`] equivalents.
 //!
-//! # Functions
-//!
-//! | std                       | npath         |
-//! |---------------------------|---------------|
-//! | -                         | [`base_name`] |
-//! | -                         | [`dir_name`]  |
-//! | [`std::fs::canonicalize`] | [`normalize`] |
-//!
 //! # [`Path`]
 //!
 //! | std                    | npath                          |
@@ -80,21 +72,89 @@ impl NormPathBufExt for PathBuf {
 
 /// Extension trait for [`Path`].
 pub trait NormPathExt {
+    /// Returns the last path component.
     ///
-
-    /// Returns the base name of `self`.
+    /// See [`basename(3)`](http://man7.org/linux/man-pages/man3/basename.3.html).
     ///
-    /// See [`base`].
+    /// # Differences with [`Path::file_name`]
+    ///
+    /// - Always returns a path (`/`, `.`, or `..`, whereas [`Path::file_name`] returns `None`).
+    /// - Returns a [`PathBuf`] instead of an [`OsStr`](std::ffi::OsStr).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::path::{Path, PathBuf};
+    /// use npath::NormPathExt;
+    ///
+    /// assert_eq!(Path::new("/usr/lib").base(), PathBuf::from("lib"));
+    /// assert_eq!(Path::new("/usr/").base(),    PathBuf::from("usr"));
+    /// assert_eq!(Path::new("usr").base(),      PathBuf::from("usr"));
+    /// assert_eq!(Path::new("/").base(),        PathBuf::from("/"));
+    /// assert_eq!(Path::new(".").base(),        PathBuf::from("."));
+    /// assert_eq!(Path::new("..").base(),       PathBuf::from(".."));
+    /// ```
     fn base(&self) -> PathBuf;
 
-    /// Returns the directory name of `self`.
+    /// Returns the path up to, but not including, the final component.
     ///
-    /// See [`dir_name`].
+    /// See [`dirname(3)`](http://man7.org/linux/man-pages/man3/dirname.3.html).
+    ///
+    /// # Differences with [`Path::parent`]
+    ///
+    /// - Always returns a path (`/` when [`Path::parent`] returns `None`).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::path::{Path, PathBuf};
+    /// use npath::NormPathExt;
+    ///
+    /// assert_eq!(Path::new("/usr/lib").dir(), PathBuf::from("/usr"));
+    /// assert_eq!(Path::new("/usr/").dir(),    PathBuf::from("/"));
+    /// assert_eq!(Path::new("usr").dir(),      PathBuf::from("."));
+    /// assert_eq!(Path::new("/").dir(),        PathBuf::from("/"));
+    /// assert_eq!(Path::new(".").dir(),        PathBuf::from("."));
+    /// assert_eq!(Path::new("..").dir(),       PathBuf::from("."));
+    /// ```
     fn dir(&self) -> PathBuf;
 
     /// Returns the normalized equivalent of `self`.
     ///
-    /// See [`normalize`].
+    /// The returned path is the shortest equivalent path, normalized by pure lexical processing
+    /// with the following rules:
+    ///
+    /// 1. Replace repeated `/` with a single one.
+    /// 2. Eliminate `.` path components (the current directory).
+    /// 3. Consume inner `..` path components (the parent directory), including components preceded
+    ///    by a rooted path (replace `/..` by `/`).
+    ///
+    /// # Differences with [`std::fs::canonicalize`]
+    ///
+    /// This function **does not touch the filesystem, ever**:
+    ///
+    /// - It does not resolve symlinks.
+    /// - It does not check if files/directories exists.
+    /// - If the given path is relative, it returns a relative path.
+    ///
+    /// If `/a/b` is a symlink to `/d/e`, for `/a/b/../c`:
+    ///
+    /// - [`std::fs::canonicalize`] returns `/d/c`.
+    /// - [`normalize`] returns `/a/c`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::path::{Path, PathBuf};
+    /// use npath::NormPathExt;
+    ///
+    /// assert_eq!(Path::new("usr/lib").normalize(),                 PathBuf::from("usr/lib"));
+    /// assert_eq!(Path::new("usr//lib").normalize(),                PathBuf::from("usr/lib"));
+    /// assert_eq!(Path::new("usr/lib/.").normalize(),               PathBuf::from("usr/lib"));
+    /// assert_eq!(Path::new("usr/lib/gcc/..").normalize(),          PathBuf::from("usr/lib"));
+    /// assert_eq!(Path::new("/../usr/lib").normalize(),             PathBuf::from("/usr/lib"));
+    /// assert_eq!(Path::new("/../usr/bin/../././/lib").normalize(), PathBuf::from("/usr/lib"));
+    /// ```
     fn normalize(&self) -> PathBuf;
 
     /// Returns `path` appended to `self`.
@@ -105,15 +165,48 @@ pub trait NormPathExt {
 
 impl NormPathExt for Path {
     fn base(&self) -> PathBuf {
-        base_name(self)
+        PathBuf::from(OsString::from_vec(base_name_from_vec(
+            self.as_os_str().as_bytes(),
+        )))
     }
 
     fn dir(&self) -> PathBuf {
-        dir_name(self)
+        PathBuf::from(OsString::from_vec(dir_name_from_vec(
+            self.as_os_str().as_bytes(),
+        )))
     }
 
     fn normalize(&self) -> PathBuf {
-        normalize(self)
+        let mut stack: Vec<Component> = vec![];
+
+        for component in self.components() {
+            match component {
+                Component::CurDir => {}
+                Component::ParentDir if !stack.is_empty() => match stack.last().unwrap() {
+                    Component::ParentDir => stack.push(component),
+                    Component::Normal(_) => {
+                        stack.pop();
+                    }
+                    _ => {}
+                },
+                _ => {
+                    stack.push(component);
+                }
+            }
+        }
+
+        // Turn an empty path into "."
+        if stack.is_empty() {
+            return Component::CurDir.as_os_str().into();
+        }
+
+        let mut path = PathBuf::new();
+
+        for component in stack {
+            path.push(component.as_os_str());
+        }
+
+        path
     }
 
     fn relative_join<P: AsRef<Path>>(&self, path: P) -> PathBuf {
@@ -121,34 +214,6 @@ impl NormPathExt for Path {
         b.relative_push(path);
         b
     }
-}
-
-/// Returns the last path component, following the final `/`.
-///
-/// See [`basename(3)`](http://man7.org/linux/man-pages/man3/basename.3.html).
-///
-/// # Differences with [`Path::file_name`]
-///
-/// - Always returns a path (`/`, `.`, or `..`, whereas [`Path::file_name`] returns `None`).
-/// - Returns a [`PathBuf`] instead of an [`OsStr`](std::ffi::OsStr).
-///
-/// # Example
-///
-/// ```
-/// use std::path::PathBuf;
-/// use npath::base_name;
-///
-/// assert_eq!(base_name("/usr/lib"), PathBuf::from("lib"));
-/// assert_eq!(base_name("/usr/"),    PathBuf::from("usr"));
-/// assert_eq!(base_name("usr"),      PathBuf::from("usr"));
-/// assert_eq!(base_name("/"),        PathBuf::from("/"));
-/// assert_eq!(base_name("."),        PathBuf::from("."));
-/// assert_eq!(base_name(".."),       PathBuf::from(".."));
-/// ```
-pub fn base_name<P: AsRef<Path>>(path: P) -> PathBuf {
-    PathBuf::from(OsString::from_vec(base_name_from_vec(
-        path.as_ref().as_os_str().as_bytes(),
-    )))
 }
 
 // See:
@@ -181,33 +246,6 @@ fn base_name_from_vec(path: &[u8]) -> Vec<u8> {
     }
 
     base.to_vec()
-}
-
-/// Returns the path up to, but not including, the final `/`.
-///
-/// See [`dirname(3)`](http://man7.org/linux/man-pages/man3/dirname.3.html).
-///
-/// # Differences with [`Path::parent`]
-///
-/// - Always returns a path (`/` when [`Path::parent`] returns `None`).
-///
-/// # Example
-///
-/// ```
-/// use std::path::PathBuf;
-/// use npath::dir_name;
-///
-/// assert_eq!(dir_name("/usr/lib"), PathBuf::from("/usr"));
-/// assert_eq!(dir_name("/usr/"),    PathBuf::from("/"));
-/// assert_eq!(dir_name("usr"),      PathBuf::from("."));
-/// assert_eq!(dir_name("/"),        PathBuf::from("/"));
-/// assert_eq!(dir_name("."),        PathBuf::from("."));
-/// assert_eq!(dir_name(".."),       PathBuf::from("."));
-/// ```
-pub fn dir_name<P: AsRef<Path>>(path: P) -> PathBuf {
-    PathBuf::from(OsString::from_vec(dir_name_from_vec(
-        path.as_ref().as_os_str().as_bytes(),
-    )))
 }
 
 // See:
@@ -246,75 +284,6 @@ fn dir_name_from_vec(path: &[u8]) -> Vec<u8> {
     dir.to_vec()
 }
 
-/// Returns the shortest equivalent path by pure lexical processing.
-///
-/// It applies the following rules:
-///
-/// 1. Replace repeated `/` with a single one.
-/// 2. Eliminate `.` path components (the current directory).
-/// 3. Consume inner `..` path components (the parent directory), including components preceded by
-///    a rooted path (replace `/..` by `/`).
-///
-/// # Differences with [`std::fs::canonicalize`]
-///
-/// This function **does not touch the filesystem, ever**:
-///
-/// - It does not resolve symlinks.
-/// - It does not check if files/directories exists.
-/// - If the given path is relative, it returns a relative path.
-///
-/// If `/a/b` is a symlink to `/d/e`, for `/a/b/../c`:
-///
-/// - [`std::fs::canonicalize`] returns `/d/c`.
-/// - [`normalize`] returns `/a/c`.
-///
-/// # Example
-///
-/// ```
-/// use std::path::PathBuf;
-/// use npath::normalize;
-///
-/// assert_eq!(normalize("usr/lib"),                 PathBuf::from("usr/lib"));
-/// assert_eq!(normalize("usr//lib"),                PathBuf::from("usr/lib"));
-/// assert_eq!(normalize("usr/lib/."),               PathBuf::from("usr/lib"));
-/// assert_eq!(normalize("usr/lib/gcc/.."),          PathBuf::from("usr/lib"));
-/// assert_eq!(normalize("/../usr/lib"),             PathBuf::from("/usr/lib"));
-/// assert_eq!(normalize("/../usr/bin/../././/lib"), PathBuf::from("/usr/lib"));
-/// ```
-pub fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
-    let path = path.as_ref();
-    let mut stack: Vec<Component> = vec![];
-
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir if !stack.is_empty() => match stack.last().unwrap() {
-                Component::ParentDir => stack.push(component),
-                Component::Normal(_) => {
-                    stack.pop();
-                }
-                _ => {}
-            },
-            _ => {
-                stack.push(component);
-            }
-        }
-    }
-
-    // Turn an empty path into "."
-    if stack.is_empty() {
-        return Component::CurDir.as_os_str().into();
-    }
-
-    let mut path = PathBuf::new();
-
-    for component in stack {
-        path.push(component.as_os_str());
-    }
-
-    path
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -338,7 +307,7 @@ mod tests {
         ];
 
         for c in cases {
-            assert_eq!(super::base_name(c.0).as_os_str(), c.1);
+            assert_eq!(Path::new(c.0).base().as_os_str(), c.1);
         }
     }
 
@@ -385,7 +354,7 @@ mod tests {
         ];
 
         for c in cases {
-            assert_eq!(super::dir_name(c.0).as_os_str(), c.1);
+            assert_eq!(Path::new(c.0).dir().as_os_str(), c.1);
         }
     }
 
@@ -439,7 +408,7 @@ mod tests {
         ];
 
         for c in cases {
-            assert_eq!(super::normalize(c.0).as_os_str(), c.1);
+            assert_eq!(Path::new(c.0).normalize().as_os_str(), c.1);
         }
     }
 }
