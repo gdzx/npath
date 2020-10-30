@@ -14,18 +14,18 @@
 //!
 //! # [`Path`]
 //!
-//! | std                    | npath                      |
-//! |------------------------|----------------------------|
-//! | [`Path::file_name`]    | [`NormPathExt::base_name`] |
-//! | [`Path::join`]         | [`NormPathExt::concat`]    |
-//! | [`Path::parent`]       | [`NormPathExt::dir_name`]  |
-//! | [`Path::canonicalize`] | [`NormPathExt::normalize`] |
+//! | std                    | npath                          |
+//! |------------------------|--------------------------------|
+//! | [`Path::file_name`]    | [`NormPathExt::base`]          |
+//! | [`Path::parent`]       | [`NormPathExt::dir`]           |
+//! | [`Path::canonicalize`] | [`NormPathExt::normalize`]     |
+//! | [`Path::join`]         | [`NormPathExt::relative_join`] |
 //!
 //! # [`PathBuf`]
 //!
-//! | std                  | npath                      |
-//! |----------------------|----------------------------|
-//! | [`PathBuf::push`]    | [`NormPathBufExt::append`] |
+//! | std                  | npath                             |
+//! |----------------------|-----------------------------------|
+//! | [`PathBuf::push`]    | [`NormPathBufExt::relative_push`] |
 //!
 //! [`dirname(3)`]: http://man7.org/linux/man-pages/man3/dirname.3.html
 //! [`basename(3)`]: http://man7.org/linux/man-pages/man3/basename.3.html
@@ -53,16 +53,16 @@ pub trait NormPathBufExt {
     ///
     /// let mut path = PathBuf::from("/usr");
     ///
-    /// path.append("bin");  // relative
-    /// path.append("/cat"); // absolute
+    /// path.relative_push("bin");  // relative
+    /// path.relative_push("/cat"); // absolute
     ///
     /// assert_eq!(path, PathBuf::from("/usr/bin/cat"));
     /// ```
-    fn append<P: AsRef<Path>>(&mut self, path: P);
+    fn relative_push<P: AsRef<Path>>(&mut self, path: P);
 }
 
 impl NormPathBufExt for PathBuf {
-    fn append<P: AsRef<Path>>(&mut self, path: P) {
+    fn relative_push<P: AsRef<Path>>(&mut self, path: P) {
         let base = unsafe { &mut *(self as *mut PathBuf as *mut Vec<u8>) };
         let path = path.as_ref();
 
@@ -80,44 +80,46 @@ impl NormPathBufExt for PathBuf {
 
 /// Extension trait for [`Path`].
 pub trait NormPathExt {
+    ///
+
     /// Returns the base name of `self`.
     ///
-    /// See [`base_name`].
-    fn base_name(&self) -> PathBuf;
-
-    /// Returns `path` appended to `self`.
-    ///
-    /// See [`NormPathBufExt::append`].
-    fn concat<P: AsRef<Path>>(&self, path: P) -> PathBuf;
+    /// See [`base`].
+    fn base(&self) -> PathBuf;
 
     /// Returns the directory name of `self`.
     ///
     /// See [`dir_name`].
-    fn dir_name(&self) -> PathBuf;
+    fn dir(&self) -> PathBuf;
 
     /// Returns the normalized equivalent of `self`.
     ///
     /// See [`normalize`].
     fn normalize(&self) -> PathBuf;
+
+    /// Returns `path` appended to `self`.
+    ///
+    /// See [`NormPathBufExt::relative_push`].
+    fn relative_join<P: AsRef<Path>>(&self, path: P) -> PathBuf;
 }
 
 impl NormPathExt for Path {
-    fn base_name(&self) -> PathBuf {
+    fn base(&self) -> PathBuf {
         base_name(self)
     }
 
-    fn concat<P: AsRef<Path>>(&self, path: P) -> PathBuf {
-        let mut b = self.to_path_buf();
-        b.append(path);
-        b
-    }
-
-    fn dir_name(&self) -> PathBuf {
+    fn dir(&self) -> PathBuf {
         dir_name(self)
     }
 
     fn normalize(&self) -> PathBuf {
         normalize(self)
+    }
+
+    fn relative_join<P: AsRef<Path>>(&self, path: P) -> PathBuf {
+        let mut b = self.to_path_buf();
+        b.relative_push(path);
+        b
     }
 }
 
@@ -313,18 +315,6 @@ pub fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
     path
 }
 
-
-    }
-
-
-
-
-
-
-    }
-
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -353,7 +343,7 @@ mod tests {
     }
 
     #[test]
-    fn concat_test() {
+    fn relative_join_test() {
         let cases = vec![
             (("a", "b"), "a/b"),
             (("a", ""), "a"),
@@ -369,7 +359,7 @@ mod tests {
         ];
 
         for c in cases {
-            assert_eq!(Path::new((c.0).0).concat((c.0).1).as_os_str(), c.1);
+            assert_eq!(Path::new((c.0).0).relative_join((c.0).1).as_os_str(), c.1);
         }
     }
 
