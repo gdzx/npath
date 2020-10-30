@@ -48,7 +48,7 @@ pub trait NormPathBufExt {
     /// # Example
     ///
     /// ```
-    /// use std::path::{Path, PathBuf};
+    /// use std::path::PathBuf;
     /// use npath::NormPathBufExt;
     ///
     /// let mut path = PathBuf::from("/usr");
@@ -56,7 +56,7 @@ pub trait NormPathBufExt {
     /// path.append("bin");  // relative
     /// path.append("/cat"); // absolute
     ///
-    /// assert_eq!(path, Path::new("/usr/bin/cat"));
+    /// assert_eq!(path, PathBuf::from("/usr/bin/cat"));
     /// ```
     fn append<P: AsRef<Path>>(&mut self, path: P);
 }
@@ -133,15 +133,15 @@ impl NormPathExt for Path {
 /// # Example
 ///
 /// ```
-/// use std::path::Path;
+/// use std::path::PathBuf;
 /// use npath::base_name;
 ///
-/// assert_eq!(base_name("/usr/lib"), Path::new("lib"));
-/// assert_eq!(base_name("/usr/"),    Path::new("usr"));
-/// assert_eq!(base_name("usr"),      Path::new("usr"));
-/// assert_eq!(base_name("/"),        Path::new("/"));
-/// assert_eq!(base_name("."),        Path::new("."));
-/// assert_eq!(base_name(".."),       Path::new(".."));
+/// assert_eq!(base_name("/usr/lib"), PathBuf::from("lib"));
+/// assert_eq!(base_name("/usr/"),    PathBuf::from("usr"));
+/// assert_eq!(base_name("usr"),      PathBuf::from("usr"));
+/// assert_eq!(base_name("/"),        PathBuf::from("/"));
+/// assert_eq!(base_name("."),        PathBuf::from("."));
+/// assert_eq!(base_name(".."),       PathBuf::from(".."));
 /// ```
 pub fn base_name<P: AsRef<Path>>(path: P) -> PathBuf {
     PathBuf::from(OsString::from_vec(base_name_from_vec(
@@ -192,15 +192,15 @@ fn base_name_from_vec(path: &[u8]) -> Vec<u8> {
 /// # Example
 ///
 /// ```
-/// use std::path::Path;
+/// use std::path::PathBuf;
 /// use npath::dir_name;
 ///
-/// assert_eq!(dir_name("/usr/lib"), Path::new("/usr"));
-/// assert_eq!(dir_name("/usr/"),    Path::new("/"));
-/// assert_eq!(dir_name("usr"),      Path::new("."));
-/// assert_eq!(dir_name("/"),        Path::new("/"));
-/// assert_eq!(dir_name("."),        Path::new("."));
-/// assert_eq!(dir_name(".."),       Path::new("."));
+/// assert_eq!(dir_name("/usr/lib"), PathBuf::from("/usr"));
+/// assert_eq!(dir_name("/usr/"),    PathBuf::from("/"));
+/// assert_eq!(dir_name("usr"),      PathBuf::from("."));
+/// assert_eq!(dir_name("/"),        PathBuf::from("/"));
+/// assert_eq!(dir_name("."),        PathBuf::from("."));
+/// assert_eq!(dir_name(".."),       PathBuf::from("."));
 /// ```
 pub fn dir_name<P: AsRef<Path>>(path: P) -> PathBuf {
     PathBuf::from(OsString::from_vec(dir_name_from_vec(
@@ -269,15 +269,15 @@ fn dir_name_from_vec(path: &[u8]) -> Vec<u8> {
 /// # Example
 ///
 /// ```
-/// use std::path::Path;
+/// use std::path::PathBuf;
 /// use npath::normalize;
 ///
-/// assert_eq!(normalize("usr/lib"),                 Path::new("usr/lib"));
-/// assert_eq!(normalize("usr//lib"),                Path::new("usr/lib"));
-/// assert_eq!(normalize("usr/lib/."),               Path::new("usr/lib"));
-/// assert_eq!(normalize("usr/lib/gcc/.."),          Path::new("usr/lib"));
-/// assert_eq!(normalize("/../usr/lib"),             Path::new("/usr/lib"));
-/// assert_eq!(normalize("/../usr/bin/../././/lib"), Path::new("/usr/lib"));
+/// assert_eq!(normalize("usr/lib"),                 PathBuf::from("usr/lib"));
+/// assert_eq!(normalize("usr//lib"),                PathBuf::from("usr/lib"));
+/// assert_eq!(normalize("usr/lib/."),               PathBuf::from("usr/lib"));
+/// assert_eq!(normalize("usr/lib/gcc/.."),          PathBuf::from("usr/lib"));
+/// assert_eq!(normalize("/../usr/lib"),             PathBuf::from("/usr/lib"));
+/// assert_eq!(normalize("/../usr/bin/../././/lib"), PathBuf::from("/usr/lib"));
 /// ```
 pub fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
     PathBuf::from(OsString::from_vec(normalize_vec(
