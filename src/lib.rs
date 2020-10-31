@@ -55,18 +55,15 @@ pub trait NormPathBufExt {
 
 impl NormPathBufExt for PathBuf {
     fn relative_push<P: AsRef<Path>>(&mut self, path: P) {
-        let base = unsafe { &mut *(self as *mut PathBuf as *mut Vec<u8>) };
-        let path = path.as_ref();
-
-        if path.as_os_str().is_empty() || path == Path::new("/") {
-            return;
-        }
-
-        if !base.is_empty() && *base.last().unwrap() != SEP && !path.is_absolute() {
-            base.push(SEP);
-        }
-
-        base.extend(path.as_os_str().as_bytes());
+        self.extend(
+            path.as_ref()
+                .components()
+                .filter(|c| match c {
+                    Component::ParentDir | Component::Normal(_) => true,
+                    _ => false,
+                })
+                .map(|c| c.as_os_str()),
+        )
     }
 }
 
@@ -210,9 +207,9 @@ impl NormPathExt for Path {
     }
 
     fn relative_join<P: AsRef<Path>>(&self, path: P) -> PathBuf {
-        let mut b = self.to_path_buf();
-        b.relative_push(path);
-        b
+        let mut p = self.to_path_buf();
+        p.relative_push(path);
+        p
     }
 }
 
@@ -405,10 +402,28 @@ mod tests {
             (("a/", "b"), "a/b"),
             (("a/", ""), "a/"),
             (("", ""), ""),
+            // Dot
+            (("a", "."), "a"),
+            (("a", ".."), "a/.."),
+            (("a", "./b"), "a/b"),
+            (("a", "../b"), "a/../b"),
+            (("a", "b/."), "a/b"),
+            (("a", "b/.."), "a/b/.."),
+            (("a", "b/./c"), "a/b/c"),
+            (("a", "b/../c"), "a/b/../c"),
         ];
 
         for c in cases {
             assert_eq!(Path::new((c.0).0).relative_join((c.0).1).as_os_str(), c.1);
+            // Absolute
+            assert_eq!(
+                Path::new((c.0).0)
+                    .relative_join(String::from("/") + (c.0).1)
+                    .as_os_str(),
+                c.1
+            );
+        }
+    }
         }
     }
 }
