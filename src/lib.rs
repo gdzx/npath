@@ -24,6 +24,8 @@
 //! [`dirname(3)`]: http://man7.org/linux/man-pages/man3/dirname.3.html
 //! [`basename(3)`]: http://man7.org/linux/man-pages/man3/basename.3.html
 
+use std::env;
+use std::io::Result;
 use std::path::{Component, Path, PathBuf, MAIN_SEPARATOR};
 
 const MAIN_SEPARATOR_STR: &'static str =
@@ -69,6 +71,25 @@ impl NormPathBufExt for PathBuf {
 
 /// Extension trait for [`Path`].
 pub trait NormPathExt {
+    /// Returns the absolute path.
+    ///
+    /// - If the path is absolute, it returns the normalized equivalent.
+    /// - If the path is relative, it is appended to [`std::env::current_dir`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::path::{Path, PathBuf};
+    /// use npath::NormPathExt;
+    ///
+    /// assert_eq!(Path::new("/usr").absolute().unwrap(), PathBuf::from("/usr"));
+    ///
+    /// if let Ok(cwd) = std::env::current_dir() {
+    ///     assert_eq!(Path::new("lib").absolute().unwrap(), cwd.relative_join("lib"));
+    /// }
+    /// ```
+    fn absolute(&self) -> Result<PathBuf>;
+
     /// Returns the last path component.
     ///
     /// See [`basename(3)`](http://man7.org/linux/man-pages/man3/basename.3.html).
@@ -161,6 +182,14 @@ pub trait NormPathExt {
 }
 
 impl NormPathExt for Path {
+    fn absolute(&self) -> Result<PathBuf> {
+        if self.is_relative() {
+            return Ok(env::current_dir()?.join(self));
+        }
+
+        Ok(self.to_path_buf())
+    }
+
     fn base(&self) -> &Path {
         self.components()
             .next_back()
@@ -238,6 +267,28 @@ mod tests {
     use std::path::Path;
 
     use super::NormPathExt;
+
+    #[test]
+    fn absolute_test() {
+        use std::env::current_dir;
+        use std::ffi::OsString;
+
+        let path = Path::new("/usr").absolute();
+        assert!(path.is_ok());
+        assert_eq!(path.unwrap().as_os_str(), "/usr");
+
+        if let Ok(dir) = current_dir() {
+            let path = Path::new("lib").absolute();
+            assert!(path.is_ok());
+
+            let path = path.unwrap();
+            assert!(path.is_absolute());
+
+            let mut result = OsString::from(dir);
+            result.push("/lib");
+            assert_eq!(path.as_os_str(), result);
+        }
+    }
 
     #[test]
     fn base_name_test() {
