@@ -1,3 +1,5 @@
+#![feature(const_str_from_utf8_unchecked)]
+
 //! Normalized Unix Paths
 //!
 //! - Pure lexical processing path normalization.
@@ -22,12 +24,10 @@
 //! [`dirname(3)`]: http://man7.org/linux/man-pages/man3/dirname.3.html
 //! [`basename(3)`]: http://man7.org/linux/man-pages/man3/basename.3.html
 
-use std::ffi::OsString;
-use std::os::unix::prelude::*;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Component, Path, PathBuf, MAIN_SEPARATOR};
 
-const SEP: u8 = b'/';
-const DOT: u8 = b'.';
+const MAIN_SEPARATOR_STR: &'static str =
+    unsafe { std::str::from_utf8_unchecked(&[MAIN_SEPARATOR as u8]) };
 
 /// Extension trait for [`PathBuf`].
 pub trait NormPathBufExt {
@@ -81,17 +81,17 @@ pub trait NormPathExt {
     /// # Example
     ///
     /// ```
-    /// use std::path::{Path, PathBuf};
+    /// use std::path::Path;
     /// use npath::NormPathExt;
     ///
-    /// assert_eq!(Path::new("/usr/lib").base(), PathBuf::from("lib"));
-    /// assert_eq!(Path::new("/usr/").base(),    PathBuf::from("usr"));
-    /// assert_eq!(Path::new("usr").base(),      PathBuf::from("usr"));
-    /// assert_eq!(Path::new("/").base(),        PathBuf::from("/"));
-    /// assert_eq!(Path::new(".").base(),        PathBuf::from("."));
-    /// assert_eq!(Path::new("..").base(),       PathBuf::from(".."));
+    /// assert_eq!(Path::new("/usr/lib").base(), Path::new("lib"));
+    /// assert_eq!(Path::new("/usr/").base(),    Path::new("usr"));
+    /// assert_eq!(Path::new("usr").base(),      Path::new("usr"));
+    /// assert_eq!(Path::new("/").base(),        Path::new("/"));
+    /// assert_eq!(Path::new(".").base(),        Path::new("."));
+    /// assert_eq!(Path::new("..").base(),       Path::new(".."));
     /// ```
-    fn base(&self) -> PathBuf;
+    fn base(&self) -> &Path;
 
     /// Returns the path up to, but not including, the final component.
     ///
@@ -104,17 +104,17 @@ pub trait NormPathExt {
     /// # Example
     ///
     /// ```
-    /// use std::path::{Path, PathBuf};
+    /// use std::path::Path;
     /// use npath::NormPathExt;
     ///
-    /// assert_eq!(Path::new("/usr/lib").dir(), PathBuf::from("/usr"));
-    /// assert_eq!(Path::new("/usr/").dir(),    PathBuf::from("/"));
-    /// assert_eq!(Path::new("usr").dir(),      PathBuf::from("."));
-    /// assert_eq!(Path::new("/").dir(),        PathBuf::from("/"));
-    /// assert_eq!(Path::new(".").dir(),        PathBuf::from("."));
-    /// assert_eq!(Path::new("..").dir(),       PathBuf::from("."));
+    /// assert_eq!(Path::new("/usr/lib").dir(), Path::new("/usr"));
+    /// assert_eq!(Path::new("/usr/").dir(),    Path::new("/"));
+    /// assert_eq!(Path::new("usr").dir(),      Path::new("."));
+    /// assert_eq!(Path::new("/").dir(),        Path::new("/"));
+    /// assert_eq!(Path::new(".").dir(),        Path::new("."));
+    /// assert_eq!(Path::new("..").dir(),       Path::new("."));
     /// ```
-    fn dir(&self) -> PathBuf;
+    fn dir(&self) -> &Path;
 
     /// Returns the normalized equivalent of `self`.
     ///
@@ -161,16 +161,36 @@ pub trait NormPathExt {
 }
 
 impl NormPathExt for Path {
-    fn base(&self) -> PathBuf {
-        PathBuf::from(OsString::from_vec(base_name_from_vec(
-            self.as_os_str().as_bytes(),
-        )))
+    fn base(&self) -> &Path {
+        self.components()
+            .next_back()
+            .and_then(|c| match c {
+                Component::Normal(p) => Some(Path::new(p)),
+                Component::RootDir => Some(Path::new(MAIN_SEPARATOR_STR)),
+                Component::CurDir => Some(Path::new(".")),
+                Component::ParentDir => Some(Path::new("..")),
+                _ => None,
+            })
+            .unwrap_or_else(|| Path::new("."))
     }
 
-    fn dir(&self) -> PathBuf {
-        PathBuf::from(OsString::from_vec(dir_name_from_vec(
-            self.as_os_str().as_bytes(),
-        )))
+    fn dir(&self) -> &Path {
+        let mut comps = self.components();
+        comps
+            .next_back()
+            .and_then(|c| match c {
+                Component::RootDir => Some(Path::new(MAIN_SEPARATOR_STR)),
+                Component::Normal(_) | Component::CurDir | Component::ParentDir => {
+                    let p = comps.as_path();
+                    if p.as_os_str().is_empty() {
+                        None
+                    } else {
+                        Some(p)
+                    }
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| Path::new("."))
     }
 
     fn normalize(&self) -> PathBuf {
@@ -213,74 +233,6 @@ impl NormPathExt for Path {
     }
 }
 
-// See:
-// - <https://golang.org/pkg/path/filepath/#Base>
-// - <https://git.musl-libc.org/cgit/musl/tree/src/misc/basename.c>
-fn base_name_from_vec(path: &[u8]) -> Vec<u8> {
-    if path.is_empty() {
-        return vec![DOT];
-    }
-
-    let mut j = path.len();
-
-    // Strip trailing separators
-    while j > 0 && path[j - 1] == SEP {
-        j -= 1;
-    }
-
-    let mut i = j;
-
-    // Include trailing characters after the last separator
-    while i > 0 && path[i - 1] != SEP {
-        i -= 1;
-    }
-
-    let base = &path[i..j];
-
-    // The path has only separators
-    if base.is_empty() {
-        return vec![SEP];
-    }
-
-    base.to_vec()
-}
-
-// See:
-// - <https://golang.org/pkg/path/filepath/#Dir>
-// - <https://git.musl-libc.org/cgit/musl/tree/src/misc/dirname.c>
-fn dir_name_from_vec(path: &[u8]) -> Vec<u8> {
-    let mut i = path.len();
-
-    // Strip trailing separators ("foo//bar//" -> "foo//bar")
-    while i > 0 && path[i - 1] == SEP {
-        i -= 1;
-    }
-
-    // Strip trailing component ("foo//bar" -> "foo//")
-    while i > 0 && path[i - 1] != SEP {
-        i -= 1;
-    }
-
-    // Strip trailing separators again ("foo//" -> "foo")
-    while i > 0 && path[i - 1] == SEP {
-        i -= 1;
-    }
-
-    // dirname of "///foo//" is "/"
-    if i == 0 && path.first() == Some(&SEP) {
-        return vec![SEP];
-    }
-
-    let dir = &path[..i];
-
-    // dirname of "foo//" is "."
-    if dir.is_empty() {
-        return vec![DOT];
-    }
-
-    dir.to_vec()
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -292,7 +244,7 @@ mod tests {
         let cases = vec![
             ("", "."),
             (".", "."),
-            ("/.", "."),
+            ("/.", "/"), // POSIX: "."
             ("/", "/"),
             ("////", "/"),
             ("x/", "x"),
@@ -422,8 +374,6 @@ mod tests {
                     .as_os_str(),
                 c.1
             );
-        }
-    }
         }
     }
 }
