@@ -126,7 +126,7 @@ pub trait NormPathExt {
     /// 3. Consume inner `..` path components (the parent directory), including components preceded
     ///    by a rooted path (replace `/..` by `/`).
     ///
-    /// # Differences with [`std::fs::canonicalize`]
+    /// # Differences with [`Path::canonicalize`]
     ///
     /// This function **does not touch the filesystem, ever**:
     ///
@@ -136,8 +136,8 @@ pub trait NormPathExt {
     ///
     /// If `/a/b` is a symlink to `/d/e`, for `/a/b/../c`:
     ///
-    /// - [`std::fs::canonicalize`] returns `/d/c`.
-    /// - [`normalize`] returns `/a/c`.
+    /// - [`Path::canonicalize`] returns `/d/c`.
+    /// - [`NormPathExt::normalize`] returns `/a/c`.
     ///
     /// # Example
     ///
