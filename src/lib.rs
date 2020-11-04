@@ -13,13 +13,13 @@
 //! | [`Path::file_name`]    | [`NormPathExt::base`]          |
 //! | [`Path::parent`]       | [`NormPathExt::dir`]           |
 //! | [`Path::canonicalize`] | [`NormPathExt::normalize`]     |
-//! | [`Path::join`]         | [`NormPathExt::relative_join`] |
+//! | [`Path::join`]         | [`NormPathExt::lexical_join`]  |
 //!
 //! # [`PathBuf`]
 //!
 //! | std                  | npath                             |
 //! |----------------------|-----------------------------------|
-//! | [`PathBuf::push`]    | [`NormPathBufExt::relative_push`] |
+//! | [`PathBuf::push`]    | [`NormPathBufExt::lexical_push`] |
 //!
 //! [`dirname(3)`]: http://man7.org/linux/man-pages/man3/dirname.3.html
 //! [`basename(3)`]: http://man7.org/linux/man-pages/man3/basename.3.html
@@ -47,16 +47,16 @@ pub trait NormPathBufExt {
     ///
     /// let mut path = PathBuf::from("/usr");
     ///
-    /// path.relative_push("bin");  // relative
-    /// path.relative_push("/cat"); // absolute
+    /// path.lexical_push("bin");  // relative
+    /// path.lexical_push("/cat"); // absolute
     ///
     /// assert_eq!(path, PathBuf::from("/usr/bin/cat"));
     /// ```
-    fn relative_push<P: AsRef<Path>>(&mut self, path: P);
+    fn lexical_push<P: AsRef<Path>>(&mut self, path: P);
 }
 
 impl NormPathBufExt for PathBuf {
-    fn relative_push<P: AsRef<Path>>(&mut self, path: P) {
+    fn lexical_push<P: AsRef<Path>>(&mut self, path: P) {
         self.extend(
             path.as_ref()
                 .components()
@@ -85,7 +85,7 @@ pub trait NormPathExt {
     /// assert_eq!(Path::new("/usr").absolute().unwrap(), PathBuf::from("/usr"));
     ///
     /// if let Ok(cwd) = std::env::current_dir() {
-    ///     assert_eq!(Path::new("lib").absolute().unwrap(), cwd.relative_join("lib"));
+    ///     assert_eq!(Path::new("lib").absolute().unwrap(), cwd.lexical_join("lib"));
     /// }
     /// ```
     fn absolute(&self) -> Result<PathBuf>;
@@ -177,8 +177,8 @@ pub trait NormPathExt {
 
     /// Returns `path` appended to `self`.
     ///
-    /// See [`NormPathBufExt::relative_push`].
-    fn relative_join<P: AsRef<Path>>(&self, path: P) -> PathBuf;
+    /// See [`NormPathBufExt::lexical_push`].
+    fn lexical_join<P: AsRef<Path>>(&self, path: P) -> PathBuf;
 }
 
 impl NormPathExt for Path {
@@ -255,9 +255,9 @@ impl NormPathExt for Path {
         path
     }
 
-    fn relative_join<P: AsRef<Path>>(&self, path: P) -> PathBuf {
+    fn lexical_join<P: AsRef<Path>>(&self, path: P) -> PathBuf {
         let mut p = self.to_path_buf();
-        p.relative_push(path);
+        p.lexical_push(path);
         p
     }
 }
@@ -392,7 +392,7 @@ mod tests {
     }
 
     #[test]
-    fn relative_join_test() {
+    fn lexical_join_test() {
         let cases = &[
             (("a", "b"), "a/b"),
             (("a", ""), "a"),
@@ -417,11 +417,11 @@ mod tests {
         ];
 
         for c in cases {
-            assert_eq!(Path::new((c.0).0).relative_join((c.0).1).as_os_str(), c.1);
+            assert_eq!(Path::new((c.0).0).lexical_join((c.0).1).as_os_str(), c.1);
             // Absolute
             assert_eq!(
                 Path::new((c.0).0)
-                    .relative_join(String::from("/") + (c.0).1)
+                    .lexical_join(String::from("/") + (c.0).1)
                     .as_os_str(),
                 c.1
             );
