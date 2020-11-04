@@ -8,12 +8,14 @@
 //!
 //! # [`Path`]
 //!
-//! | std                    | npath                          |
-//! |------------------------|--------------------------------|
-//! | [`Path::file_name`]    | [`NormPathExt::base`]          |
-//! | [`Path::parent`]       | [`NormPathExt::dir`]           |
-//! | [`Path::canonicalize`] | [`NormPathExt::normalize`]     |
-//! | [`Path::join`]         | [`NormPathExt::lexical_join`]  |
+//! | std                    | npath                            |
+//! |------------------------|----------------------------------|
+//! | [`Path::file_name`]    | [`NormPathExt::base`]            |
+//! | [`Path::parent`]       | [`NormPathExt::dir`]             |
+//! | [`Path::join`]         | [`NormPathExt::lexical_join`]    |
+//! | [`Path::canonicalize`] | [`NormPathExt::normalize`]       |
+//! |                        | [`NormPathExt::relative_to`]     |
+//! |                        | [`NormPathExt::try_relative_to`] |
 //!
 //! # [`PathBuf`]
 //!
@@ -179,6 +181,53 @@ pub trait NormPathExt {
     ///
     /// See [`NormPathBufExt::lexical_push`].
     fn lexical_join<P: AsRef<Path>>(&self, path: P) -> PathBuf;
+
+    /// Returns the relative path from `base` to `self`.
+    ///
+    /// The path is such that: `base.join(path) == self`.
+    ///
+    /// # Differences with [`NormPathExt::try_relative_to`]
+    ///
+    /// Only lexical operations are performed. If `self` can't be made relative to `base`, it
+    /// returns `None` (fetching the current directory is required).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::path::{Path, PathBuf};
+    /// use npath::NormPathExt;
+    ///
+    /// assert_eq!(Path::new("/usr/lib").relative_to("/usr"), Some(PathBuf::from("lib")));
+    /// assert_eq!(Path::new("usr/bin").relative_to("var"),   Some(PathBuf::from("../usr/bin")));
+    /// assert_eq!(Path::new("foo").relative_to("/"),         None);
+    /// assert_eq!(Path::new("foo").relative_to(".."),        None);
+    /// ```
+    fn relative_to<P: AsRef<Path>>(&self, base: P) -> Option<PathBuf>;
+
+    /// Returns the relative path from `base` to `self`.
+    ///
+    /// The path is such that: `base.join(path) == self`.
+    ///
+    /// # Differences with [`NormPathExt::relative_to`]
+    ///
+    /// A system call to determine the current working directory is required if one of `self` or
+    /// `base` is relative.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::env;
+    /// use std::path::{Path, PathBuf};
+    /// use npath::NormPathExt;
+    ///
+    /// assert_eq!(Path::new("/usr/lib").try_relative_to("/usr").unwrap(), PathBuf::from("lib"));
+    /// assert_eq!(Path::new("usr/bin").try_relative_to("var").unwrap(),   PathBuf::from("../usr/bin"));
+    ///
+    /// if let Ok(cwd) = env::current_dir() {
+    ///     assert_eq!(Path::new("foo").try_relative_to("..").unwrap(), cwd.base().join("foo"));
+    /// }
+    /// ```
+    fn try_relative_to<P: AsRef<Path>>(&self, base: P) -> Result<PathBuf>;
 }
 
 impl NormPathExt for Path {
@@ -260,6 +309,96 @@ impl NormPathExt for Path {
         p.lexical_push(path);
         p
     }
+
+    fn relative_to<P: AsRef<Path>>(&self, base: P) -> Option<PathBuf> {
+        let base = base.as_ref().normalize();
+        let path = self.normalize();
+
+        if base.has_root() != path.has_root() {
+            return None;
+        }
+
+        let mut base_components = base.components();
+        let mut path_components = path.components();
+
+        let mut base_head = base_components.next();
+        let mut path_head = path_components.next();
+
+        loop {
+            match (base_head, path_head) {
+                (Some(Component::Prefix(a)), Some(Component::Prefix(b))) if a != b => {
+                    return None;
+                }
+                (Some(x), Some(y)) if x == y => {
+                    base_head = base_components.next();
+                    path_head = path_components.next();
+                }
+                (None, None) => return Some(PathBuf::from(".")),
+                _ => {
+                    let mut p = PathBuf::new();
+
+                    if let Some(Component::ParentDir) = base_head {
+                        return None;
+                    }
+
+                    if base_head.is_some() && base_head != Some(Component::CurDir) {
+                        p.push("..");
+                    }
+
+                    while let Some(_) = base_components.next() {
+                        p.push("..");
+                    }
+
+                    if let Some(c) = path_head {
+                        p.push(c);
+                        p.extend(path_components);
+                    }
+
+                    return Some(p);
+                }
+            }
+        }
+    }
+
+    fn try_relative_to<P: AsRef<Path>>(&self, base: P) -> Result<PathBuf> {
+        let base = base.as_ref().absolute()?.normalize();
+        let path = self.absolute()?.normalize();
+
+        let mut base_components = base.components();
+        let mut path_components = path.components();
+
+        let mut base_head = base_components.next();
+        let mut path_head = path_components.next();
+
+        loop {
+            match (base_head, path_head) {
+                (Some(x), Some(y)) if x == y => {
+                    base_head = base_components.next();
+                    path_head = path_components.next();
+                }
+                (None, None) => return Ok(PathBuf::from(".")),
+                _ => {
+                    let mut p = PathBuf::new();
+
+                    if base_head.is_some() {
+                        p.push("..");
+                    }
+
+                    while let Some(_) = base_components.next() {
+                        p.push("..");
+                    }
+
+                    if let Some(c) = path_head {
+                        p.push(c);
+                        p.extend(path_components);
+                    }
+
+                    return Ok(p);
+                }
+            }
+        }
+    }
+}
 }
 
 #[cfg(test)]
@@ -425,6 +564,136 @@ mod tests {
                     .as_os_str(),
                 c.1
             );
+        }
+    }
+
+    #[test]
+    fn relative_to_test() {
+        let cases = &[
+            ("a/b", "a/b", "."),
+            ("a/b/.", "a/b", "."),
+            ("a/b", "a/b/.", "."),
+            ("./a/b", "a/b", "."),
+            ("a/b", "./a/b", "."),
+            ("ab/cd", "ab/cde", "../cde"),
+            ("ab/cd", "ab/c", "../c"),
+            ("a/b", "a/b/c/d", "c/d"),
+            ("a/b", "a/b/../c", "../c"),
+            ("a/b/../c", "a/b", "../b"),
+            ("a/b/c", "a/c/d", "../../c/d"),
+            ("a/b", "c/d", "../../c/d"),
+            ("a/b/c/d", "a/b", "../.."),
+            ("a/b/c/d", "a/b/", "../.."),
+            ("a/b/c/d/", "a/b", "../.."),
+            ("a/b/c/d/", "a/b/", "../.."),
+            ("../../a/b", "../../a/b/c/d", "c/d"),
+            ("/a/b", "/a/b", "."),
+            ("/a/b/.", "/a/b", "."),
+            ("/a/b", "/a/b/.", "."),
+            ("/ab/cd", "/ab/cde", "../cde"),
+            ("/ab/cd", "/ab/c", "../c"),
+            ("/a/b", "/a/b/c/d", "c/d"),
+            ("/a/b", "/a/b/../c", "../c"),
+            ("/a/b/../c", "/a/b", "../b"),
+            ("/a/b/c", "/a/c/d", "../../c/d"),
+            ("/a/b", "/c/d", "../../c/d"),
+            ("/a/b/c/d", "/a/b", "../.."),
+            ("/a/b/c/d", "/a/b/", "../.."),
+            ("/a/b/c/d/", "/a/b", "../.."),
+            ("/a/b/c/d/", "/a/b/", "../.."),
+            ("/../../a/b", "/../../a/b/c/d", "c/d"),
+            (".", "a/b", "a/b"),
+            (".", "..", ".."),
+        ];
+
+        for c in cases {
+            let p = Path::new(c.1).relative_to(c.0);
+            assert!(p.is_some());
+            assert_eq!(p.unwrap().as_os_str(), c.2);
+        }
+
+        // Can't do purely lexically
+        let cases = &[
+            ("..", "."),
+            ("..", "a"),
+            ("../..", ".."),
+            ("a", "/a"),
+            ("/a", "a"),
+        ];
+
+        for c in cases {
+            assert!(Path::new(c.1).relative_to(c.0).is_none());
+        }
+    }
+
+    #[test]
+    fn try_relative_to_test() {
+        use std::env;
+
+        let cases = &[
+            ("a/b", "a/b", "."),
+            ("a/b/.", "a/b", "."),
+            ("a/b", "a/b/.", "."),
+            ("./a/b", "a/b", "."),
+            ("a/b", "./a/b", "."),
+            ("ab/cd", "ab/cde", "../cde"),
+            ("ab/cd", "ab/c", "../c"),
+            ("a/b", "a/b/c/d", "c/d"),
+            ("a/b", "a/b/../c", "../c"),
+            ("a/b/../c", "a/b", "../b"),
+            ("a/b/c", "a/c/d", "../../c/d"),
+            ("a/b", "c/d", "../../c/d"),
+            ("a/b/c/d", "a/b", "../.."),
+            ("a/b/c/d", "a/b/", "../.."),
+            ("a/b/c/d/", "a/b", "../.."),
+            ("a/b/c/d/", "a/b/", "../.."),
+            ("../../a/b", "../../a/b/c/d", "c/d"),
+            ("/a/b", "/a/b", "."),
+            ("/a/b/.", "/a/b", "."),
+            ("/a/b", "/a/b/.", "."),
+            ("/ab/cd", "/ab/cde", "../cde"),
+            ("/ab/cd", "/ab/c", "../c"),
+            ("/a/b", "/a/b/c/d", "c/d"),
+            ("/a/b", "/a/b/../c", "../c"),
+            ("/a/b/../c", "/a/b", "../b"),
+            ("/a/b/c", "/a/c/d", "../../c/d"),
+            ("/a/b", "/c/d", "../../c/d"),
+            ("/a/b/c/d", "/a/b", "../.."),
+            ("/a/b/c/d", "/a/b/", "../.."),
+            ("/a/b/c/d/", "/a/b", "../.."),
+            ("/a/b/c/d/", "/a/b/", "../.."),
+            ("/../../a/b", "/../../a/b/c/d", "c/d"),
+            (".", "a/b", "a/b"),
+            (".", "..", ".."),
+        ];
+
+        for c in cases {
+            let p = Path::new(c.1).try_relative_to(c.0);
+            assert!(p.is_ok());
+            assert_eq!(p.unwrap().as_os_str(), c.2);
+        }
+
+        // The result depends on the current directory
+        if let Ok(c) = env::current_dir() {
+            let mut root = std::path::PathBuf::new();
+
+            for _ in 0..c.components().count() {
+                root.push("..");
+            }
+
+            let cases = &[
+                ("..", ".", c.base().to_path_buf()),
+                ("..", "a", c.base().join("a")),
+                ("../..", "..", c.dir().base().to_path_buf()),
+                ("a", "/a", root.join("a")),
+                ("/a", "a", Path::new("..").lexical_join(c).join("a")),
+            ];
+
+            for c in cases {
+                let p = Path::new(c.1).try_relative_to(c.0);
+                assert!(p.is_ok());
+                assert_eq!(p.unwrap().as_os_str(), c.2);
+            }
         }
     }
 }
