@@ -292,7 +292,7 @@ mod tests {
 
     #[test]
     fn base_name_test() {
-        let cases = vec![
+        let cases = &[
             ("", "."),
             (".", "."),
             ("/.", "/"), // POSIX: "."
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn dir_name_test() {
-        let cases = vec![
+        let cases = &[
             ("", "."),
             (".", "."),
             ("..", "."),
@@ -339,7 +339,7 @@ mod tests {
 
     #[test]
     fn normalize_test() {
-        let cases = vec![
+        let cases = &[
             // Already clean
             ("abc", "abc"),
             ("abc/def", "abc/def"),
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn relative_join_test() {
-        let cases = vec![
+        let cases = &[
             (("a", "b"), "a/b"),
             (("a", ""), "a"),
             (("", "b"), "b"),
