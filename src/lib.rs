@@ -1,4 +1,5 @@
 #![feature(const_str_from_utf8_unchecked)]
+#![feature(osstring_ascii)]
 
 //! Normalized Unix Paths
 //!
@@ -14,8 +15,11 @@
 //! | [`Path::parent`]       | [`NormPathExt::dir`]             |
 //! | [`Path::join`]         | [`NormPathExt::lexical_join`]    |
 //! | [`Path::canonicalize`] | [`NormPathExt::normalize`]       |
-//! |                        | [`NormPathExt::relative_to`]     |
-//! |                        | [`NormPathExt::try_relative_to`] |
+//! | -                      | [`NormPathExt::is_inside`]       |
+//! | -                      | [`NormPathExt::relative_to`]     |
+//! | -                      | [`NormPathExt::try_relative_to`] |
+//! | -                      | [`NormPathExt::rooted_join`]     |
+//! | -                      | [`NormPathExt::try_rooted_join`] |
 //!
 //! # [`PathBuf`]
 //!
@@ -27,8 +31,9 @@
 //! [`basename(3)`]: http://man7.org/linux/man-pages/man3/basename.3.html
 
 use std::env;
-use std::io::Result;
-use std::path::{Component, Path, PathBuf, MAIN_SEPARATOR};
+use std::ffi::{OsStr, OsString};
+use std::io::{Error, ErrorKind, Result};
+use std::path::{is_separator, Component, Path, PathBuf, Prefix, PrefixComponent, MAIN_SEPARATOR};
 
 const MAIN_SEPARATOR_STR: &'static str =
     unsafe { std::str::from_utf8_unchecked(&[MAIN_SEPARATOR as u8]) };
@@ -59,15 +64,29 @@ pub trait NormPathBufExt {
 
 impl NormPathBufExt for PathBuf {
     fn lexical_push<P: AsRef<Path>>(&mut self, path: P) {
-        self.extend(
-            path.as_ref()
-                .components()
-                .filter(|c| match c {
-                    Component::ParentDir | Component::Normal(_) => true,
-                    _ => false,
-                })
-                .map(|c| c.as_os_str()),
-        )
+        let prefix = get_prefix(self.as_path());
+        let prefix_is_disk = matches!(prefix.map(|p| p.kind()), Some(Prefix::Disk(_)));
+        let prefix_len = prefix.map(|p| p.as_os_str().len());
+
+        let base = unsafe { &mut *(self as *mut PathBuf as *mut Vec<u8>) };
+        let mut path = unsafe { &*(path.as_ref() as *const Path as *const [u8]) };
+
+        while !path.is_empty() && is_separator(path[0] as char) {
+            path = &path[1..];
+        }
+
+        if path.is_empty() {
+            return;
+        }
+
+        if !base.is_empty()
+            && !is_separator(*base.last().unwrap() as char)
+            && !(prefix_is_disk && Some(base.len()) == prefix_len)
+        {
+            base.push(MAIN_SEPARATOR as u8);
+        }
+
+        base.extend(path);
     }
 }
 
@@ -84,11 +103,13 @@ pub trait NormPathExt {
     /// use std::path::{Path, PathBuf};
     /// use npath::NormPathExt;
     ///
+    /// # if cfg!(unix) {
     /// assert_eq!(Path::new("/usr").absolute().unwrap(), PathBuf::from("/usr"));
     ///
     /// if let Ok(cwd) = std::env::current_dir() {
     ///     assert_eq!(Path::new("lib").absolute().unwrap(), cwd.lexical_join("lib"));
     /// }
+    /// # }
     /// ```
     fn absolute(&self) -> Result<PathBuf>;
 
@@ -138,6 +159,42 @@ pub trait NormPathExt {
     /// assert_eq!(Path::new("..").dir(),       Path::new("."));
     /// ```
     fn dir(&self) -> &Path;
+
+    /// Returns whether `self` is lexically inside of `base`.
+    ///
+    /// `self` is considered "lexically inside" `base` if and only if:
+    ///
+    /// - `self` and `base` are both relative, or both absolute.
+    /// - `self` does not have any component outside of `base`.
+    ///
+    /// When `base` is relative, it returns false if it is necessary to know the absolute path
+    /// (when it contains ".." followed by a normal component, there is no way to know whether it
+    /// is re-entering a previous directory or if it branches off). To avoid this edge case, ensure
+    /// both path are absolute with one of these methods:
+    ///
+    /// - [`NormPathExt::absolute`].
+    /// - [`Path::canonicalize`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::path::Path;
+    /// use npath::NormPathExt;
+    ///
+    /// assert!(Path::new("/srv").is_inside("/"));
+    /// assert!(Path::new("/srv").is_inside("/srv"));
+    /// assert!(Path::new("/srv/file.txt").is_inside("/srv"));
+    ///
+    /// assert!(Path::new("srv").is_inside("srv"));
+    /// assert!(Path::new("srv").is_inside("."));
+    /// assert!(Path::new("srv").is_inside(".."));
+    /// assert!(Path::new("../srv").is_inside(".."));
+    ///
+    /// assert!(!Path::new("srv").is_inside("../foo"));
+    /// assert!(!Path::new("/srv/..").is_inside("/srv"));
+    /// assert!(!Path::new("file.txt").is_inside("/srv"));
+    /// ```
+    fn is_inside<P: AsRef<Path>>(&self, base: P) -> bool;
 
     /// Returns the normalized equivalent of `self`.
     ///
@@ -189,7 +246,8 @@ pub trait NormPathExt {
     /// # Differences with [`NormPathExt::try_relative_to`]
     ///
     /// Only lexical operations are performed. If `self` can't be made relative to `base`, it
-    /// returns `None` (fetching the current directory is required).
+    /// returns `None` (fetching the current directory is required, one path is absolute while the
+    /// other is relative, or the path have differents prefixes).
     ///
     /// # Example
     ///
@@ -228,11 +286,68 @@ pub trait NormPathExt {
     /// }
     /// ```
     fn try_relative_to<P: AsRef<Path>>(&self, base: P) -> Result<PathBuf>;
+
+    /// Returns `path` restricted to `self`.
+    ///
+    /// This methods works as if `base` was the root directory. The returned path is guaranteed to
+    /// be lexically inside `base`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::path::{Path, PathBuf};
+    /// use npath::NormPathExt;
+    ///
+    /// assert_eq!(Path::new("/srv").rooted_join("file.txt"),           PathBuf::from("/srv/file.txt"));
+    /// assert_eq!(Path::new("/srv").rooted_join("/file.txt"),          PathBuf::from("/srv/file.txt"));
+    /// assert_eq!(Path::new("/srv").rooted_join("../file.txt"),        PathBuf::from("/srv/file.txt"));
+    /// assert_eq!(Path::new("/srv").rooted_join("foo/../file.txt"),    PathBuf::from("/srv/file.txt"));
+    /// assert_eq!(Path::new("/srv").rooted_join("foo/../../file.txt"), PathBuf::from("/srv/file.txt"));
+    /// assert_eq!(
+    ///     Path::new("/srv").rooted_join("../srv/file.txt"),
+    ///     PathBuf::from("/srv/srv/file.txt")
+    /// );
+    /// ```
+    fn rooted_join<P: AsRef<Path>>(&self, path: P) -> PathBuf;
+
+    /// Returns `path` restricted to `self`.
+    ///
+    /// See [`NormPathExt::rooted_join2`].
+    fn rooted_join2<P: AsRef<Path>>(&self, path: P) -> PathBuf;
+
+    /// Returns `path` restricted to `self`.
+    ///
+    /// `self` and `path` are converted to absolute path with [`NormPathExt::absolute`], they are
+    /// joined with [`NormPathExt::lexical_join`], and the result is normalized with
+    /// [`NormPathExt::normalize`].
+    ///
+    /// # Differences with [`NormPathExt::rooted_join`]
+    ///
+    /// If `path` points to a location outside of `base`, it returns an error.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::path::{Path, PathBuf};
+    /// use npath::NormPathExt;
+    ///
+    /// assert_eq!(Path::new("/srv").try_rooted_join("file.txt").unwrap(),        PathBuf::from("/srv/file.txt"));
+    /// assert_eq!(Path::new("/srv").try_rooted_join("/file.txt").unwrap(),       PathBuf::from("/srv/file.txt"));
+    /// assert_eq!(Path::new("/srv").try_rooted_join("foo/../file.txt").unwrap(), PathBuf::from("/srv/file.txt"));
+    /// assert_eq!(
+    ///     Path::new("/srv").try_rooted_join("../srv/file.txt").unwrap(),
+    ///     PathBuf::from("/srv/file.txt")
+    /// );
+    ///
+    /// assert!(Path::new("/srv").try_rooted_join("../file.txt").is_err());
+    /// assert!(Path::new("/srv").try_rooted_join("foo/../../file.txt").is_err());
+    /// ```
+    fn try_rooted_join<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf>;
 }
 
 impl NormPathExt for Path {
     fn absolute(&self) -> Result<PathBuf> {
-        if self.is_relative() {
+        if !self.has_root() {
             return Ok(env::current_dir()?.join(self));
         }
 
@@ -257,18 +372,47 @@ impl NormPathExt for Path {
         comps
             .next_back()
             .and_then(|c| match c {
-                Component::RootDir => Some(Path::new(MAIN_SEPARATOR_STR)),
+                Component::Prefix(_) | Component::RootDir => Some(self.components().as_path()),
                 Component::Normal(_) | Component::CurDir | Component::ParentDir => {
                     let p = comps.as_path();
-                    if p.as_os_str().is_empty() {
-                        None
-                    } else {
+                    if !p.as_os_str().is_empty() {
                         Some(p)
+                    } else {
+                        None
                     }
                 }
-                _ => None,
             })
             .unwrap_or_else(|| Path::new("."))
+    }
+
+    fn is_inside<P: AsRef<Path>>(&self, base: P) -> bool {
+        let base = base.as_ref().normalize();
+        let path = self.normalize();
+
+        let mut base_components = base.components();
+        let mut path_components = path.components();
+
+        let mut base_head = base_components.next();
+        let mut path_head = path_components.next();
+
+        loop {
+            match (base_head, path_head) {
+                (Some(Component::CurDir), _) => base_head = base_components.next(),
+                (_, Some(Component::CurDir)) => path_head = path_components.next(),
+                (Some(x), Some(y)) if are_equal(&x, &y) => {
+                    base_head = base_components.next();
+                    path_head = path_components.next();
+                }
+                (Some(Component::ParentDir), Some(Component::Normal(_))) => {
+                    while base_head == Some(Component::ParentDir) {
+                        base_head = base_components.next();
+                    }
+                    return base_head == None;
+                }
+                (None, _) => return true,
+                _ => return false,
+            }
+        }
     }
 
     fn normalize(&self) -> PathBuf {
@@ -278,7 +422,7 @@ impl NormPathExt for Path {
             match component {
                 Component::CurDir => {}
                 Component::ParentDir if !stack.is_empty() => match stack.last().unwrap() {
-                    Component::ParentDir => stack.push(component),
+                    Component::Prefix(_) | Component::ParentDir => stack.push(component),
                     Component::Normal(_) => {
                         stack.pop();
                     }
@@ -326,10 +470,12 @@ impl NormPathExt for Path {
 
         loop {
             match (base_head, path_head) {
-                (Some(Component::Prefix(a)), Some(Component::Prefix(b))) if a != b => {
+                (Some(a @ Component::Prefix(_)), Some(b @ Component::Prefix(_)))
+                    if !are_equal(&a, &b) =>
+                {
                     return None;
                 }
-                (Some(x), Some(y)) if x == y => {
+                (Some(x), Some(y)) if are_equal(&x, &y) => {
                     base_head = base_components.next();
                     path_head = path_components.next();
                 }
@@ -372,7 +518,7 @@ impl NormPathExt for Path {
 
         loop {
             match (base_head, path_head) {
-                (Some(x), Some(y)) if x == y => {
+                (Some(x), Some(y)) if are_equal(&x, &y) => {
                     base_head = base_components.next();
                     path_head = path_components.next();
                 }
@@ -398,16 +544,103 @@ impl NormPathExt for Path {
             }
         }
     }
+
+    fn rooted_join<P: AsRef<Path>>(&self, path: P) -> PathBuf {
+        self.lexical_join(normalize_rooted(path.as_ref()))
+    }
+
+    fn rooted_join2<P: AsRef<Path>>(&self, path: P) -> PathBuf {
+        let path = path.as_ref();
+
+        // Ensure path is absolute so normalize can eliminate all ".." components
+        let path = if path.is_relative() {
+            Path::new("/").join(path).normalize()
+        } else {
+            path.normalize()
+        };
+
+        self.lexical_join(path)
+    }
+
+    // <https://github.com/django/django/blob/master/django/utils/_os.py>
+    fn try_rooted_join<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf> {
+        // Make absolute and normalize all paths
+        let base = self.absolute()?.normalize();
+        let path = self.lexical_join(path).absolute()?.normalize();
+
+        // For `path` to be located inside `base`, either:
+        // - It starts with `base` + "/"
+        // - It is equal to `base`
+        // - It is the root directory "/"
+        if !path.starts_with(join_os_str(&base, "/")) && path != base && base.file_name().is_some()
+        {
+            return Err(Error::new(
+                ErrorKind::Other,
+                "Path outside of base directory",
+            ));
+        }
+
+        Ok(path)
+    }
 }
+
+// TODO: Handle prefixes containing / (limited by the prefix parsing code, avoid comparing OsStr of
+// the full prefix).
+fn are_equal(a: &Component, b: &Component) -> bool {
+    if cfg!(windows) {
+        return a.as_os_str().to_ascii_lowercase() == b.as_os_str().to_ascii_lowercase();
+    }
+    return a == b;
+}
+
+fn get_prefix(path: &Path) -> Option<PrefixComponent> {
+    path.components().next().and_then(|c| {
+        if let Component::Prefix(p) = c {
+            return Some(p);
+        } else {
+            None
+        }
+    })
+}
+
+fn join_os_str<S1: AsRef<OsStr>, S2: AsRef<OsStr>>(a: S1, b: S2) -> OsString {
+    let mut res = a.as_ref().to_os_string();
+    res.push(b);
+    res
+}
+
+// Eliminate all ".." components
+fn normalize_rooted(path: &Path) -> PathBuf {
+    let mut stack: Vec<&OsStr> = vec![];
+
+    for component in path.components() {
+        match component {
+            Component::Normal(_) => stack.push(component.as_os_str()),
+            Component::ParentDir => {
+                if !stack.is_empty() {
+                    stack.pop();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let mut path = PathBuf::new();
+
+    for component in &stack {
+        path.lexical_push(component);
+    }
+
+    path
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-
-    use super::NormPathExt;
+    use super::{NormPathBufExt, NormPathExt};
+    use std::path::{Path, PathBuf};
 
     #[test]
+    #[cfg(unix)]
     fn absolute_test() {
         use std::env::current_dir;
         use std::ffi::OsString;
@@ -430,6 +663,30 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
+    fn absolute_test() {
+        use std::env::current_dir;
+        use std::ffi::OsString;
+
+        let path = Path::new(r"\Windows").absolute();
+        assert!(path.is_ok());
+        assert_eq!(path.unwrap().as_os_str(), r"\Windows");
+
+        if let Ok(dir) = current_dir() {
+            let path = Path::new("Windows").absolute();
+            assert!(path.is_ok());
+
+            let path = path.unwrap();
+            assert!(path.is_absolute());
+
+            let mut result = OsString::from(dir);
+            result.push(r"\Windows");
+            assert_eq!(path.as_os_str(), result);
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
     fn base_name_test() {
         let cases = &[
             ("", "."),
@@ -451,6 +708,26 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
+    fn base_name_test() {
+        let cases = &[
+            (r"c:\", r"\"),
+            (r"c:.", "."),
+            (r"c:\a\b", "b"),
+            (r"c:a\b", "b"),
+            (r"c:a\b\c", "c"),
+            (r"\\host\share\", r"\"),
+            (r"\\host\share\a", "a"),
+            (r"\\host\share\a\b", "b"),
+        ];
+
+        for c in cases {
+            assert_eq!(Path::new(c.0).base().as_os_str(), c.1);
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
     fn dir_name_test() {
         let cases = &[
             ("", "."),
@@ -477,6 +754,67 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
+    fn dir_name_test() {
+        let cases = &[
+            (r"c:\", r"c:\"),
+            (r"c:.", r"c:."),
+            (r"c:\a\b", r"c:\a"),
+            (r"c:a\b", r"c:a"),
+            (r"c:a\b\c", r"c:a\b"),
+            (r"\\host\share", r"\\host\share"),
+            (r"\\host\share\", r"\\host\share\"),
+            (r"\\host\share\a", r"\\host\share\"),
+            (r"\\host\share\a\b", r"\\host\share\a"),
+        ];
+
+        for c in cases {
+            assert_eq!(Path::new(c.0).dir().as_os_str(), c.1);
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn is_inside_test() {
+        assert!(Path::new("/").is_inside("/"));
+        assert!(Path::new(".").is_inside("."));
+
+        assert!(Path::new("/srv").is_inside("/"));
+        assert!(Path::new("/srv").is_inside("//"));
+        assert!(Path::new("/srv/").is_inside("/"));
+        assert!(Path::new("/srv/.").is_inside("/"));
+        assert!(Path::new("/srv/..").is_inside("/"));
+        assert!(Path::new("/srv/../").is_inside("/"));
+
+        assert!(Path::new("/srv").is_inside("/srv"));
+        assert!(Path::new("/srv/").is_inside("/srv"));
+        assert!(Path::new("/srv/.").is_inside("/srv"));
+
+        assert!(Path::new("/srv").is_inside("/srv/"));
+        assert!(Path::new("/srv/").is_inside("/srv/"));
+        assert!(Path::new("/srv/.").is_inside("/srv/"));
+
+        assert!(Path::new("/srv").is_inside("/srv/."));
+        assert!(Path::new("/srv/").is_inside("/srv/."));
+        assert!(Path::new("/srv/.").is_inside("/srv/."));
+
+        assert!(Path::new("/srv/file.txt").is_inside("/srv"));
+
+        assert!(Path::new("srv").is_inside("srv"));
+        assert!(Path::new("srv").is_inside("."));
+
+        assert!(!Path::new("file.txt").is_inside("/srv"));
+        assert!(!Path::new("srv/file.txt").is_inside("/srv"));
+
+        assert!(!Path::new("/srv/..").is_inside("/srv"));
+
+        assert!(Path::new("foo").is_inside(".."));
+        assert!(!Path::new("foo").is_inside("../bar"));
+        assert!(!Path::new("/foo").is_inside(".."));
+    }
+
+    #[test]
+    #[cfg(unix)]
     fn normalize_test() {
         let cases = &[
             // Already clean
@@ -531,43 +869,143 @@ mod tests {
     }
 
     #[test]
-    fn lexical_join_test() {
+    #[cfg(windows)]
+    fn normalize_test() {
         let cases = &[
-            (("a", "b"), "a/b"),
-            (("a", ""), "a"),
-            (("", "b"), "b"),
-            (("/", "a"), "/a"),
-            (("/", "a/b"), "/a/b"),
-            (("/", ""), "/"),
-            (("//", "a"), "//a"),
-            (("/a", "b"), "/a/b"),
-            (("a/", "b"), "a/b"),
-            (("a/", ""), "a/"),
-            (("", ""), ""),
-            // Dot
-            (("a", "."), "a"),
-            (("a", ".."), "a/.."),
-            (("a", "./b"), "a/b"),
-            (("a", "../b"), "a/../b"),
-            (("a", "b/."), "a/b"),
-            (("a", "b/.."), "a/b/.."),
-            (("a", "b/./c"), "a/b/c"),
-            (("a", "b/../c"), "a/b/../c"),
+            (r"c:", r"c:"), // Go: "c:."
+            (r"c:\", r"c:\"),
+            (r"c:\abc", r"c:\abc"),
+            (r"c:abc\..\..\.\.\..\def", r"c:..\..\def"),
+            (r"c:\abc\def\..\..", r"c:\"),
+            (r"c:\..\abc", r"c:\abc"),
+            (r"c:..\abc", r"c:..\abc"),
+            (r"\", r"\"),
+            (r"/", r"\"),
+            (r"\\i\..\c$", r"\\i\..\c$"),     // Go: "\c$" (bogus)
+            (r"\\i\..\i\c$", r"\\i\..\i\c$"), // Go: "\i\c$" (bogus)
+            (r"\\i\..\I\c$", r"\\i\..\I\c$"), // Go: "\I\c$" (bogus)
+            (r"\\host\share\foo\..\bar", r"\\host\share\bar"),
+            (r"//host/share/foo/../baz", r"\host\share\baz"), // GetFullPathName: "\\host\share\baz"
+            (r"\\a\b\..\c", r"\\a\b\c"),
+            (r"\\a\b", r"\\a\b\"), // Go: "\\a\b"
+            (r"\\a\..\", r"\\a\..\"),
+            // Issue with std::sys::path::parse_prefix (ignores UNC with empty server and share)
+            (r"\\\a\..\", r"\"), // GetFullPathName: "\\\a\" (UNC prefix)
+            (r"\\\\a\..", r"\"), // GetFullPathName: "\\\" (UNC prefix)
+            // Issue with std::sys::path::parse_prefix (only considers "\\")
+            (r"//a\..\", r"\"),
         ];
 
         for c in cases {
-            assert_eq!(Path::new((c.0).0).lexical_join((c.0).1).as_os_str(), c.1);
-            // Absolute
-            assert_eq!(
-                Path::new((c.0).0)
-                    .lexical_join(String::from("/") + (c.0).1)
-                    .as_os_str(),
-                c.1
-            );
+            assert_eq!(Path::new(c.0).normalize().as_os_str(), c.1);
         }
     }
 
     #[test]
+    #[cfg(unix)]
+    fn lexical_join_test() {
+        let cases = &[
+            (vec!["a", "b"], "a/b"),
+            (vec!["a", ""], "a"),
+            (vec!["", "b"], "b"),
+            (vec!["/", "a"], "/a"),
+            (vec!["/", "a/b"], "/a/b"),
+            (vec!["/", ""], "/"),
+            (vec!["//", "a"], "//a"), // Go: "/a"
+            (vec!["/a", "b"], "/a/b"),
+            (vec!["a/", "b"], "a/b"),
+            (vec!["a/", ""], "a/"), // Go: "a"
+            (vec!["", ""], ""),
+            (vec!["/", "a", "b"], "/a/b"),
+            // Dot
+            (vec!["a", "."], "a/."),
+            (vec!["a", ".."], "a/.."),
+            (vec!["a", "./b"], "a/./b"),
+            (vec!["a", "../b"], "a/../b"),
+            (vec!["a", "b/."], "a/b/."),
+            (vec!["a", "b/.."], "a/b/.."),
+            (vec!["a", "b/./c"], "a/b/./c"),
+            (vec!["a", "b/../c"], "a/b/../c"),
+        ];
+
+        for c in cases {
+            let mut p = PathBuf::from(c.0[0]);
+
+            for s in &c.0[1..] {
+                p.lexical_push(s);
+            }
+
+            assert_eq!(p.as_os_str(), c.1);
+        }
+
+        // Redo the tests with a "/" before each component
+        for c in cases {
+            let mut p = PathBuf::from(c.0[0]);
+
+            for s in &c.0[1..] {
+                p.lexical_push(String::from("/") + s);
+            }
+
+            assert_eq!(p.as_os_str(), c.1);
+        }
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn lexical_join_test() {
+        let cases = &[
+            (vec!["directory", "file"], r"directory\file"),
+            (vec![r"C:\Windows\", "System32"], r"C:\Windows\System32"),
+            (vec![r"C:\Windows\", ""], r"C:\Windows\"), // Go: "C:\Windows"
+            (vec![r"C:\", "Windows"], r"C:\Windows"),
+            (vec![r"C:", "a"], "C:a"),
+            (vec![r"C:", r"a\b"], r"C:a\b"),
+            (vec![r"C:", "a", "b"], r"C:a\b"),
+            (vec![r"C:", "", "b"], "C:b"),
+            (vec![r"C:", "", "", "b"], "C:b"),
+            (vec![r"C:", ""], "C:"),       // Go: "C:."
+            (vec![r"C:", "", ""], "C:"),   // Go: "C:."
+            (vec![r"C:.", "a"], r"C:.\a"), // Go: "C:a"
+            (vec![r"C:a", "b"], r"C:a\b"),
+            (vec![r"C:a", "b", "d"], r"C:a\b\d"),
+            (vec![r"\\host\share", "foo"], r"\\host\share\foo"),
+            (vec![r"\\host\share\foo"], r"\\host\share\foo"),
+            (vec![r"//host/share", "foo/bar"], r"//host/share\foo/bar"), // Go: "\\host\share\foo\bar"
+            (vec![r"\"], r"\"),
+            (vec![r"\", ""], r"\"),
+            (vec![r"\", "a"], r"\a"),
+            (vec![r"\\", "a"], r"\\a"), // Go: "\a"
+            (vec![r"\", "a", "b"], r"\a\b"),
+            (vec![r"\\", "a", "b"], r"\\a\b"), // Go: "\a\b"
+            (vec![r"\", r"\\a\b", "c"], r"\a\b\c"),
+            (vec![r"\\a", "b", "c"], r"\\a\b\c"), // Go: "\a\b\c"
+            (vec![r"\\a\", "b", "c"], r"\\a\b\c"), // Go: "\a\b\c"
+        ];
+
+        for c in cases {
+            let mut p = PathBuf::from(c.0[0]);
+
+            for s in &c.0[1..] {
+                p.lexical_push(s);
+            }
+
+            assert_eq!(p.as_os_str(), c.1);
+        }
+
+        // Redo the tests with a "\" before each component
+        for c in cases {
+            let mut p = PathBuf::from(c.0[0]);
+
+            for s in &c.0[1..] {
+                p.lexical_push(String::from(r"\") + s);
+            }
+
+            assert_eq!(p.as_os_str(), c.1);
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
     fn relative_to_test() {
         let cases = &[
             ("a/b", "a/b", "."),
@@ -627,6 +1065,44 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
+    fn relative_to_test() {
+        let cases = &[
+            (r"C:a\b\c", r"C:a/b/d", r"..\d"),
+            (r"C:\Projects", r"c:\projects\src", r"src"),
+            (r"C:\Projects", r"c:\projects", r"."),
+            (r"C:\Projects\a\..", r"c:\projects", r"."),
+        ];
+
+        for c in cases {
+            let p = Path::new(c.1).relative_to(c.0);
+            assert!(p.is_some());
+            assert_eq!(p.unwrap().as_os_str(), c.2);
+        }
+
+        // Can't do purely lexically
+        let cases = &[
+            ("..", "."),
+            ("..", "a"),
+            (r"..\..", ".."),
+            ("a", r"\a"),
+            (r"\a", "a"),
+        ];
+
+        for c in cases {
+            assert!(Path::new(c.1).relative_to(c.0).is_none());
+        }
+
+        // There is no relative path
+        let cases = &[(r"C:\", r"D:\"), (r"C:", r"D:")];
+
+        for c in cases {
+            assert!(Path::new(c.1).relative_to(c.0).is_none());
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
     fn try_relative_to_test() {
         use std::env;
 
@@ -694,6 +1170,147 @@ mod tests {
                 assert!(p.is_ok());
                 assert_eq!(p.unwrap().as_os_str(), c.2);
             }
+        }
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn try_relative_to_test() {
+        let cases = &[
+            (r"C:a\b\c", r"C:a/b/d", r"..\d"),
+            (r"C:\Projects", r"c:\projects\src", r"src"),
+            (r"C:\Projects", r"c:\projects", r"."),
+            (r"C:\Projects\a\..", r"c:\projects", r"."),
+        ];
+
+        for c in cases {
+            let p = Path::new(c.1).try_relative_to(c.0);
+            assert!(p.is_ok());
+            assert_eq!(p.unwrap().as_os_str(), c.2);
+        }
+
+        // TODO: there are some cases where there is no relative paths. Need to change the return
+        // type of try_relative_to.
+        //let cases = &[(r"C:\", r"D:\"), (r"C:", r"D:")];
+
+        //for c in cases {
+        //    assert!(Path::new(c.1).try_relative_to(c.0).is_none());
+        //}
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn rooted_join_test() {
+        let cases = &[
+            ("/usr", "lib", "/usr/lib"),
+            ("/usr", "/lib", "/usr/lib"),
+            ("/usr", "lib/..", "/usr"),
+            ("/", "..", "/"),
+        ];
+
+        for c in cases {
+            assert_eq!(Path::new(c.0).rooted_join(c.1).as_os_str(), c.2);
+        }
+
+        let cases = &[
+            ("/usr", "../etc/passwd", "/usr/etc/passwd"),
+            ("/usr", "/../etc/passwd", "/usr/etc/passwd"),
+            ("/usr", "lib/../../etc/passwd", "/usr/etc/passwd"),
+            ("/usr", "../usr-", "/usr/usr-"),
+        ];
+
+        for c in cases {
+            assert_eq!(Path::new(c.0).rooted_join(c.1).as_os_str(), c.2);
+        }
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn rooted_join_test() {
+        let cases = &[
+            (r"C:\Windows", "System32", r"C:\Windows\System32"),
+            (r"C:\Windows", "System32", r"C:\Windows\System32"),
+            (r"C:\Windows", "System32/..", r"C:\Windows"),
+            (r"C:\", "..", r"C:\"),
+        ];
+
+        for c in cases {
+            assert_eq!(Path::new(c.0).rooted_join(c.1).as_os_str(), c.2);
+        }
+
+        let cases = &[
+            (r"C:\Windows", r"..\System32", r"C:\Windows\System32"),
+            (r"C:\Windows", r"\..\System32", r"C:\Windows\System32"),
+            (
+                r"C:\Windows",
+                r"System\..\..\System32",
+                r"C:\Windows\System32",
+            ),
+            (r"C:\Windows", r"..\Windows-", r"C:\Windows\Windows-"),
+        ];
+
+        for c in cases {
+            assert_eq!(Path::new(c.0).rooted_join(c.1).as_os_str(), c.2);
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn try_rooted_join_test() {
+        let cases = &[
+            ("/usr", "lib", "/usr/lib"),
+            ("/usr", "/lib", "/usr/lib"),
+            ("/usr", "lib/..", "/usr"),
+            ("/", "..", "/"),
+        ];
+
+        for c in cases {
+            let path = Path::new(c.0).try_rooted_join(c.1);
+            assert!(path.is_ok());
+            assert_eq!(path.unwrap().as_os_str(), c.2);
+        }
+
+        let cases = &[
+            ("/usr", "../etc/passwd"),        // /etc/passwd
+            ("/usr", "/../etc/passwd"),       // /etc/passwd
+            ("/usr", "lib/../../etc/passwd"), // /etc/passwd
+            ("/usr", "../usr-"),              // /usr-
+        ];
+
+        for c in cases {
+            assert!(Path::new(c.0).try_rooted_join(c.1).is_err());
+        }
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn try_rooted_join_test() {
+        let cases = &[
+            (r"C:\Windows", "System32", r"C:\Windows\System32"),
+            (r"C:\Windows", "System32", r"C:\Windows\System32"),
+            (r"C:\Windows", "System32/..", r"C:\Windows"),
+            (r"C:\", "..", r"C:\"),
+        ];
+
+        for c in cases {
+            let path = Path::new(c.0).try_rooted_join(c.1);
+            assert!(path.is_ok());
+            assert_eq!(path.unwrap().as_os_str(), c.2);
+        }
+
+        let cases = &[
+            (r"C:\Windows", r"..\System32", r"C:\Windows\System32"),
+            (r"C:\Windows", r"\..\System32", r"C:\Windows\System32"),
+            (
+                r"C:\Windows",
+                r"System\..\..\System32",
+                r"C:\Windows\System32",
+            ),
+            (r"C:\Windows", r"..\Windows-", r"C:\Windows\Windows-"),
+        ];
+
+        for c in cases {
+            assert!(Path::new(c.0).try_rooted_join(c.1).is_err());
         }
     }
 }
