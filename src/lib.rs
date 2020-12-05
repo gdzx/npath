@@ -639,6 +639,20 @@ mod tests {
     use super::{NormPathBufExt, NormPathExt};
     use std::path::{Path, PathBuf};
 
+    macro_rules! assert_eq_ok {
+        ($left:expr, $right:expr) => {
+            assert!($left.is_ok());
+            assert_eq!($left.unwrap(), $right);
+        };
+    }
+
+    macro_rules! assert_eq_some {
+        ($left:expr, $right:expr) => {
+            assert!($left.is_some());
+            assert_eq!($left.unwrap(), $right);
+        };
+    }
+
     #[test]
     #[cfg(unix)]
     fn absolute_test() {
@@ -685,420 +699,440 @@ mod tests {
         }
     }
 
+    macro_rules! base {
+        ($a:literal) => {
+            Path::new($a).base().as_os_str()
+        };
+    }
+
     #[test]
     #[cfg(unix)]
     fn base_name_test() {
-        let cases = &[
-            ("", "."),
-            (".", "."),
-            ("/.", "/"), // POSIX: "."
-            ("/", "/"),
-            ("////", "/"),
-            ("x/", "x"),
-            ("abc", "abc"),
-            ("abc/def", "def"),
-            ("a/b/.x", ".x"),
-            ("a/b/c.", "c."),
-            ("a/b/c.x", "c.x"),
-        ];
-
-        for c in cases {
-            assert_eq!(Path::new(c.0).base().as_os_str(), c.1);
-        }
+        assert_eq!(base!(""), ".");
+        assert_eq!(base!("."), ".");
+        assert_eq!(base!("/."), "/"); // POSIX: "."
+        assert_eq!(base!("/"), "/");
+        assert_eq!(base!("////"), "/");
+        assert_eq!(base!("x/"), "x");
+        assert_eq!(base!("abc"), "abc");
+        assert_eq!(base!("abc/def"), "def");
+        assert_eq!(base!("a/b/.x"), ".x");
+        assert_eq!(base!("a/b/c."), "c.");
+        assert_eq!(base!("a/b/c.x"), "c.x");
     }
 
     #[test]
     #[cfg(windows)]
     fn base_name_test() {
-        let cases = &[
-            (r"c:\", r"\"),
-            (r"c:.", "."),
-            (r"c:\a\b", "b"),
-            (r"c:a\b", "b"),
-            (r"c:a\b\c", "c"),
-            (r"\\host\share\", r"\"),
-            (r"\\host\share\a", "a"),
-            (r"\\host\share\a\b", "b"),
-        ];
+        assert_eq!(base!(r"c:\"), r"\");
+        assert_eq!(base!(r"c:."), ".");
+        assert_eq!(base!(r"c:\a\b"), "b");
+        assert_eq!(base!(r"c:a\b"), "b");
+        assert_eq!(base!(r"c:a\b\c"), "c");
+        assert_eq!(base!(r"\\host\share\"), r"\");
+        assert_eq!(base!(r"\\host\share\a"), "a");
+        assert_eq!(base!(r"\\host\share\a\b"), "b");
+    }
 
-        for c in cases {
-            assert_eq!(Path::new(c.0).base().as_os_str(), c.1);
-        }
+    macro_rules! dir {
+        ($a:literal) => {
+            Path::new($a).dir().as_os_str()
+        };
     }
 
     #[test]
     #[cfg(unix)]
     fn dir_name_test() {
-        let cases = &[
-            ("", "."),
-            (".", "."),
-            ("..", "."),
-            ("/.", "/"),
-            ("/", "/"),
-            ("////", "/"),
-            ("/foo", "/"),
-            ("x/", "."),   // Go's `filepath.Dir` returns "x"
-            ("x///", "."), // Go's `filepath.Dir` returns "x"
-            ("abc", "."),
-            ("abc/def", "abc"),
-            ("a/b/.x", "a/b"),
-            ("a/b/c.", "a/b"),
-            ("a/b/c.x", "a/b"),
-            // Unnormalized
-            ("/../x", "/.."),
-        ];
+        assert_eq!(dir!(""), ".");
+        assert_eq!(dir!("."), ".");
+        assert_eq!(dir!(".."), ".");
+        assert_eq!(dir!("/."), "/");
+        assert_eq!(dir!("/"), "/");
+        assert_eq!(dir!("////"), "/");
+        assert_eq!(dir!("/foo"), "/");
+        assert_eq!(dir!("x/"), "."); // Go's `filepath.Dir` returns "x"
+        assert_eq!(dir!("x///"), "."); // Go's `filepath.Dir` returns "x"
+        assert_eq!(dir!("abc"), ".");
+        assert_eq!(dir!("abc/def"), "abc");
+        assert_eq!(dir!("a/b/.x"), "a/b");
+        assert_eq!(dir!("a/b/c."), "a/b");
+        assert_eq!(dir!("a/b/c.x"), "a/b");
 
-        for c in cases {
-            assert_eq!(Path::new(c.0).dir().as_os_str(), c.1);
-        }
+        // Unnormalized
+        assert_eq!(dir!("/../x"), "/..");
     }
 
     #[test]
     #[cfg(windows)]
     fn dir_name_test() {
-        let cases = &[
-            (r"c:\", r"c:\"),
-            (r"c:.", r"c:."),
-            (r"c:\a\b", r"c:\a"),
-            (r"c:a\b", r"c:a"),
-            (r"c:a\b\c", r"c:a\b"),
-            (r"\\host\share", r"\\host\share"),
-            (r"\\host\share\", r"\\host\share\"),
-            (r"\\host\share\a", r"\\host\share\"),
-            (r"\\host\share\a\b", r"\\host\share\a"),
-        ];
-
-        for c in cases {
-            assert_eq!(Path::new(c.0).dir().as_os_str(), c.1);
-        }
+        assert_eq!(dir!(r"c:\"), r"c:\");
+        assert_eq!(dir!(r"c:."), r"c:.");
+        assert_eq!(dir!(r"c:\a\b"), r"c:\a");
+        assert_eq!(dir!(r"c:a\b"), r"c:a");
+        assert_eq!(dir!(r"c:a\b\c"), r"c:a\b");
+        assert_eq!(dir!(r"\\host\share"), r"\\host\share");
+        assert_eq!(dir!(r"\\host\share\"), r"\\host\share\");
+        assert_eq!(dir!(r"\\host\share\a"), r"\\host\share\");
+        assert_eq!(dir!(r"\\host\share\a\b"), r"\\host\share\a");
     }
 
+    macro_rules! is_inside {
+        ($a:literal, $b:literal) => {
+            Path::new($a).is_inside($b)
+        };
+    }
+
+    // TODO: Windows
     #[test]
     #[cfg(unix)]
     fn is_inside_test() {
-        assert!(Path::new("/").is_inside("/"));
-        assert!(Path::new(".").is_inside("."));
+        assert!(is_inside!("/", "/"));
+        assert!(is_inside!(".", "."));
 
-        assert!(Path::new("/srv").is_inside("/"));
-        assert!(Path::new("/srv").is_inside("//"));
-        assert!(Path::new("/srv/").is_inside("/"));
-        assert!(Path::new("/srv/.").is_inside("/"));
-        assert!(Path::new("/srv/..").is_inside("/"));
-        assert!(Path::new("/srv/../").is_inside("/"));
+        assert!(is_inside!("/srv", "/"));
+        assert!(is_inside!("/srv", "//"));
+        assert!(is_inside!("/srv/", "/"));
+        assert!(is_inside!("/srv/.", "/"));
+        assert!(is_inside!("/srv/..", "/"));
+        assert!(is_inside!("/srv/../", "/"));
 
-        assert!(Path::new("/srv").is_inside("/srv"));
-        assert!(Path::new("/srv/").is_inside("/srv"));
-        assert!(Path::new("/srv/.").is_inside("/srv"));
+        assert!(is_inside!("/srv", "/srv"));
+        assert!(is_inside!("/srv/", "/srv"));
+        assert!(is_inside!("/srv/.", "/srv"));
 
-        assert!(Path::new("/srv").is_inside("/srv/"));
-        assert!(Path::new("/srv/").is_inside("/srv/"));
-        assert!(Path::new("/srv/.").is_inside("/srv/"));
+        assert!(is_inside!("/srv", "/srv/"));
+        assert!(is_inside!("/srv/", "/srv/"));
+        assert!(is_inside!("/srv/.", "/srv/"));
 
-        assert!(Path::new("/srv").is_inside("/srv/."));
-        assert!(Path::new("/srv/").is_inside("/srv/."));
-        assert!(Path::new("/srv/.").is_inside("/srv/."));
+        assert!(is_inside!("/srv", "/srv/."));
+        assert!(is_inside!("/srv/", "/srv/."));
+        assert!(is_inside!("/srv/.", "/srv/."));
 
-        assert!(Path::new("/srv/file.txt").is_inside("/srv"));
+        assert!(is_inside!("/srv/file.txt", "/srv"));
 
-        assert!(Path::new("srv").is_inside("srv"));
-        assert!(Path::new("srv").is_inside("."));
+        assert!(is_inside!("srv", "srv"));
+        assert!(is_inside!("srv", "."));
 
-        assert!(!Path::new("file.txt").is_inside("/srv"));
-        assert!(!Path::new("srv/file.txt").is_inside("/srv"));
+        assert!(!is_inside!("file.txt", "/srv"));
+        assert!(!is_inside!("srv/file.txt", "/srv"));
 
-        assert!(!Path::new("/srv/..").is_inside("/srv"));
+        assert!(!is_inside!("/srv/..", "/srv"));
 
-        assert!(Path::new("foo").is_inside(".."));
-        assert!(!Path::new("foo").is_inside("../bar"));
-        assert!(!Path::new("/foo").is_inside(".."));
+        assert!(is_inside!("foo", ".."));
+        assert!(!is_inside!("foo", "../bar"));
+        assert!(!is_inside!("/foo", ".."));
+    }
+
+    macro_rules! normalize {
+        ($a:literal) => {
+            Path::new($a).normalize().as_os_str()
+        };
     }
 
     #[test]
     #[cfg(unix)]
     fn normalize_test() {
-        let cases = &[
-            // Already clean
-            ("abc", "abc"),
-            ("abc/def", "abc/def"),
-            ("a/b/c", "a/b/c"),
-            (".", "."),
-            ("..", ".."),
-            ("../..", "../.."),
-            ("../../abc", "../../abc"),
-            ("/abc", "/abc"),
-            ("/", "/"),
-            // Empty is current dir
-            ("", "."),
-            // Remove trailing slash
-            ("abc/", "abc"),
-            ("abc/def/", "abc/def"),
-            ("a/b/c/", "a/b/c"),
-            ("./", "."),
-            ("../", ".."),
-            ("../../", "../.."),
-            ("/abc/", "/abc"),
-            // Remove doubled slash
-            ("abc//def//ghi", "abc/def/ghi"),
-            ("//abc", "/abc"),
-            ("///abc", "/abc"),
-            ("//abc//", "/abc"),
-            ("abc//", "abc"),
-            // Remove . elements
-            ("abc/./def", "abc/def"),
-            ("/./abc/def", "/abc/def"),
-            ("abc/.", "abc"),
-            // Remove .. elements
-            ("abc/def/ghi/../jkl", "abc/def/jkl"),
-            ("abc/def/../ghi/../jkl", "abc/jkl"),
-            ("abc/def/..", "abc"),
-            ("abc/def/../..", "."),
-            ("/abc/def/../..", "/"),
-            ("abc/def/../../..", ".."),
-            ("/abc/def/../../..", "/"),
-            ("abc/def/../../../ghi/jkl/../../../mno", "../../mno"),
-            ("/../abc", "/abc"),
-            // Combinations
-            ("abc/./../def", "def"),
-            ("abc//./../def", "def"),
-            ("abc/../../././../def", "../../def"),
-        ];
+        // Already clean
+        assert_eq!(normalize!("abc"), "abc");
+        assert_eq!(normalize!("abc/def"), "abc/def");
+        assert_eq!(normalize!("a/b/c"), "a/b/c");
+        assert_eq!(normalize!("."), ".");
+        assert_eq!(normalize!(".."), "..");
+        assert_eq!(normalize!("../.."), "../..");
+        assert_eq!(normalize!("../../abc"), "../../abc");
+        assert_eq!(normalize!("/abc"), "/abc");
+        assert_eq!(normalize!("/"), "/");
 
-        for c in cases {
-            assert_eq!(Path::new(c.0).normalize().as_os_str(), c.1);
-        }
+        // Empty is current dir
+        assert_eq!(normalize!(""), ".");
+
+        // Remove trailing slash
+        assert_eq!(normalize!("abc/"), "abc");
+        assert_eq!(normalize!("abc/def/"), "abc/def");
+        assert_eq!(normalize!("a/b/c/"), "a/b/c");
+        assert_eq!(normalize!("./"), ".");
+        assert_eq!(normalize!("../"), "..");
+        assert_eq!(normalize!("../../"), "../..");
+        assert_eq!(normalize!("/abc/"), "/abc");
+
+        // Remove doubled slash
+        assert_eq!(normalize!("abc//def//ghi"), "abc/def/ghi");
+        assert_eq!(normalize!("//abc"), "/abc");
+        assert_eq!(normalize!("///abc"), "/abc");
+        assert_eq!(normalize!("//abc//"), "/abc");
+        assert_eq!(normalize!("abc//"), "abc");
+
+        // Remove . elements
+        assert_eq!(normalize!("abc/./def"), "abc/def");
+        assert_eq!(normalize!("/./abc/def"), "/abc/def");
+        assert_eq!(normalize!("abc/."), "abc");
+
+        // Remove .. elements
+        assert_eq!(normalize!("abc/def/ghi/../jkl"), "abc/def/jkl");
+        assert_eq!(normalize!("abc/def/../ghi/../jkl"), "abc/jkl");
+        assert_eq!(normalize!("abc/def/.."), "abc");
+        assert_eq!(normalize!("abc/def/../.."), ".");
+        assert_eq!(normalize!("/abc/def/../.."), "/");
+        assert_eq!(normalize!("abc/def/../../.."), "..");
+        assert_eq!(normalize!("/abc/def/../../.."), "/");
+        assert_eq!(
+            normalize!("abc/def/../../../ghi/jkl/../../../mno"),
+            "../../mno"
+        );
+        assert_eq!(normalize!("/../abc"), "/abc");
+
+        // Combinations
+        assert_eq!(normalize!("abc/./../def"), "def");
+        assert_eq!(normalize!("abc//./../def"), "def");
+        assert_eq!(normalize!("abc/../../././../def"), "../../def");
     }
 
     #[test]
     #[cfg(windows)]
     fn normalize_test() {
-        let cases = &[
-            (r"c:", r"c:"), // Go: "c:."
-            (r"c:\", r"c:\"),
-            (r"c:\abc", r"c:\abc"),
-            (r"c:abc\..\..\.\.\..\def", r"c:..\..\def"),
-            (r"c:\abc\def\..\..", r"c:\"),
-            (r"c:\..\abc", r"c:\abc"),
-            (r"c:..\abc", r"c:..\abc"),
-            (r"\", r"\"),
-            (r"/", r"\"),
-            (r"\\i\..\c$", r"\\i\..\c$"),     // Go: "\c$" (bogus)
-            (r"\\i\..\i\c$", r"\\i\..\i\c$"), // Go: "\i\c$" (bogus)
-            (r"\\i\..\I\c$", r"\\i\..\I\c$"), // Go: "\I\c$" (bogus)
-            (r"\\host\share\foo\..\bar", r"\\host\share\bar"),
-            (r"//host/share/foo/../baz", r"\host\share\baz"), // GetFullPathName: "\\host\share\baz"
-            (r"\\a\b\..\c", r"\\a\b\c"),
-            (r"\\a\b", r"\\a\b\"), // Go: "\\a\b"
-            (r"\\a\..\", r"\\a\..\"),
-            // Issue with std::sys::path::parse_prefix (ignores UNC with empty server and share)
-            (r"\\\a\..\", r"\"), // GetFullPathName: "\\\a\" (UNC prefix)
-            (r"\\\\a\..", r"\"), // GetFullPathName: "\\\" (UNC prefix)
-            // Issue with std::sys::path::parse_prefix (only considers "\\")
-            (r"//a\..\", r"\"),
-        ];
+        assert_eq!(normalize!(r"c:"), r"c:"); // Go: "c:."
+        assert_eq!(normalize!(r"c:\"), r"c:\");
+        assert_eq!(normalize!(r"c:\abc"), r"c:\abc");
+        assert_eq!(normalize!(r"c:abc\..\..\.\.\..\def"), r"c:..\..\def");
+        assert_eq!(normalize!(r"c:\abc\def\..\.."), r"c:\");
+        assert_eq!(normalize!(r"c:\..\abc"), r"c:\abc");
+        assert_eq!(normalize!(r"c:..\abc"), r"c:..\abc");
+        assert_eq!(normalize!(r"\"), r"\");
+        assert_eq!(normalize!(r"/"), r"\");
+        assert_eq!(normalize!(r"\\i\..\c$"), r"\\i\..\c$"); // Go: "\c$" (bogus)
+        assert_eq!(normalize!(r"\\i\..\i\c$"), r"\\i\..\i\c$"); // Go: "\i\c$" (bogus)
+        assert_eq!(normalize!(r"\\i\..\I\c$"), r"\\i\..\I\c$"); // Go: "\I\c$" (bogus)
+        assert_eq!(normalize!(r"\\host\share\foo\..\bar"), r"\\host\share\bar");
+        assert_eq!(normalize!(r"//host/share/foo/../baz"), r"\host\share\baz"); // GetFullPathName: "\\host\share\baz"
+        assert_eq!(normalize!(r"\\a\b\..\c"), r"\\a\b\c");
+        assert_eq!(normalize!(r"\\a\b"), r"\\a\b\"); // Go: "\\a\b"
+        assert_eq!(normalize!(r"\\a\..\"), r"\\a\..\");
 
-        for c in cases {
-            assert_eq!(Path::new(c.0).normalize().as_os_str(), c.1);
-        }
+        // Issue with std::sys::path::parse_prefix (ignores UNC with empty server and share)
+        assert_eq!(normalize!(r"\\\a\..\"), r"\"); // GetFullPathName: "\\\a\" (UNC prefix)
+        assert_eq!(normalize!(r"\\\\a\.."), r"\"); // GetFullPathName: "\\\" (UNC prefix)
+
+        // Issue with std::sys::path::parse_prefix (only considers "\\")
+        assert_eq!(normalize!(r"//a\..\"), r"\");
+    }
+
+    macro_rules! lexical_join {
+        ($l:literal) => {
+            Path::new($l).as_os_str()
+        };
+        ($l:literal, $($a:literal),*) => {
+            {
+                let mut p = PathBuf::from($l);
+
+                $(
+                    p.lexical_push($a);
+                )*
+
+                p
+            }.as_os_str()
+        };
     }
 
     #[test]
     #[cfg(unix)]
     fn lexical_join_test() {
-        let cases = &[
-            (vec!["a", "b"], "a/b"),
-            (vec!["a", ""], "a"),
-            (vec!["", "b"], "b"),
-            (vec!["/", "a"], "/a"),
-            (vec!["/", "a/b"], "/a/b"),
-            (vec!["/", ""], "/"),
-            (vec!["//", "a"], "//a"), // Go: "/a"
-            (vec!["/a", "b"], "/a/b"),
-            (vec!["a/", "b"], "a/b"),
-            (vec!["a/", ""], "a/"), // Go: "a"
-            (vec!["", ""], ""),
-            (vec!["/", "a", "b"], "/a/b"),
-            // Dot
-            (vec!["a", "."], "a/."),
-            (vec!["a", ".."], "a/.."),
-            (vec!["a", "./b"], "a/./b"),
-            (vec!["a", "../b"], "a/../b"),
-            (vec!["a", "b/."], "a/b/."),
-            (vec!["a", "b/.."], "a/b/.."),
-            (vec!["a", "b/./c"], "a/b/./c"),
-            (vec!["a", "b/../c"], "a/b/../c"),
-        ];
+        assert_eq!(lexical_join!("a", "b"), "a/b");
+        assert_eq!(lexical_join!("a", ""), "a");
+        assert_eq!(lexical_join!("", "b"), "b");
+        assert_eq!(lexical_join!("/", "a"), "/a");
+        assert_eq!(lexical_join!("/", "a/b"), "/a/b");
+        assert_eq!(lexical_join!("/", ""), "/");
+        assert_eq!(lexical_join!("//", "a"), "//a"); // Go: "/a"
+        assert_eq!(lexical_join!("/a", "b"), "/a/b");
+        assert_eq!(lexical_join!("a/", "b"), "a/b");
+        assert_eq!(lexical_join!("a/", ""), "a/"); // Go: "a"
+        assert_eq!(lexical_join!("", ""), "");
+        assert_eq!(lexical_join!("/", "a", "b"), "/a/b");
 
-        for c in cases {
-            let mut p = PathBuf::from(c.0[0]);
-
-            for s in &c.0[1..] {
-                p.lexical_push(s);
-            }
-
-            assert_eq!(p.as_os_str(), c.1);
-        }
+        // Dot
+        assert_eq!(lexical_join!("a", "."), "a/.");
+        assert_eq!(lexical_join!("a", ".."), "a/..");
+        assert_eq!(lexical_join!("a", "./b"), "a/./b");
+        assert_eq!(lexical_join!("a", "../b"), "a/../b");
+        assert_eq!(lexical_join!("a", "b/."), "a/b/.");
+        assert_eq!(lexical_join!("a", "b/.."), "a/b/..");
+        assert_eq!(lexical_join!("a", "b/./c"), "a/b/./c");
+        assert_eq!(lexical_join!("a", "b/../c"), "a/b/../c");
 
         // Redo the tests with a "/" before each component
-        for c in cases {
-            let mut p = PathBuf::from(c.0[0]);
+        assert_eq!(lexical_join!("a", "/b"), "a/b");
+        assert_eq!(lexical_join!("a", "/"), "a");
+        assert_eq!(lexical_join!("", "/b"), "b");
+        assert_eq!(lexical_join!("/", "/a"), "/a");
+        assert_eq!(lexical_join!("/", "/a/b"), "/a/b");
+        assert_eq!(lexical_join!("/", "/"), "/");
+        assert_eq!(lexical_join!("//", "/a"), "//a"); // Go: "/a"
+        assert_eq!(lexical_join!("/a", "/b"), "/a/b");
+        assert_eq!(lexical_join!("a/", "/b"), "a/b");
+        assert_eq!(lexical_join!("a/", "/"), "a/"); // Go: "a"
+        assert_eq!(lexical_join!("", "/"), "");
+        assert_eq!(lexical_join!("/", "/a", "/b"), "/a/b");
 
-            for s in &c.0[1..] {
-                p.lexical_push(String::from("/") + s);
-            }
-
-            assert_eq!(p.as_os_str(), c.1);
-        }
+        // Dot
+        assert_eq!(lexical_join!("a", "/."), "a/.");
+        assert_eq!(lexical_join!("a", "/.."), "a/..");
+        assert_eq!(lexical_join!("a", "/./b"), "a/./b");
+        assert_eq!(lexical_join!("a", "/../b"), "a/../b");
+        assert_eq!(lexical_join!("a", "/b/."), "a/b/.");
+        assert_eq!(lexical_join!("a", "/b/.."), "a/b/..");
+        assert_eq!(lexical_join!("a", "/b/./c"), "a/b/./c");
+        assert_eq!(lexical_join!("a", "/b/../c"), "a/b/../c");
     }
 
     #[test]
     #[cfg(windows)]
     fn lexical_join_test() {
-        let cases = &[
-            (vec!["directory", "file"], r"directory\file"),
-            (vec![r"C:\Windows\", "System32"], r"C:\Windows\System32"),
-            (vec![r"C:\Windows\", ""], r"C:\Windows\"), // Go: "C:\Windows"
-            (vec![r"C:\", "Windows"], r"C:\Windows"),
-            (vec![r"C:", "a"], "C:a"),
-            (vec![r"C:", r"a\b"], r"C:a\b"),
-            (vec![r"C:", "a", "b"], r"C:a\b"),
-            (vec![r"C:", "", "b"], "C:b"),
-            (vec![r"C:", "", "", "b"], "C:b"),
-            (vec![r"C:", ""], "C:"),       // Go: "C:."
-            (vec![r"C:", "", ""], "C:"),   // Go: "C:."
-            (vec![r"C:.", "a"], r"C:.\a"), // Go: "C:a"
-            (vec![r"C:a", "b"], r"C:a\b"),
-            (vec![r"C:a", "b", "d"], r"C:a\b\d"),
-            (vec![r"\\host\share", "foo"], r"\\host\share\foo"),
-            (vec![r"\\host\share\foo"], r"\\host\share\foo"),
-            (vec![r"//host/share", "foo/bar"], r"//host/share\foo/bar"), // Go: "\\host\share\foo\bar"
-            (vec![r"\"], r"\"),
-            (vec![r"\", ""], r"\"),
-            (vec![r"\", "a"], r"\a"),
-            (vec![r"\\", "a"], r"\\a"), // Go: "\a"
-            (vec![r"\", "a", "b"], r"\a\b"),
-            (vec![r"\\", "a", "b"], r"\\a\b"), // Go: "\a\b"
-            (vec![r"\", r"\\a\b", "c"], r"\a\b\c"),
-            (vec![r"\\a", "b", "c"], r"\\a\b\c"), // Go: "\a\b\c"
-            (vec![r"\\a\", "b", "c"], r"\\a\b\c"), // Go: "\a\b\c"
-        ];
-
-        for c in cases {
-            let mut p = PathBuf::from(c.0[0]);
-
-            for s in &c.0[1..] {
-                p.lexical_push(s);
-            }
-
-            assert_eq!(p.as_os_str(), c.1);
-        }
+        assert_eq!(lexical_join!("directory", "file"), r"directory\file");
+        assert_eq!(
+            lexical_join!(r"C:\Windows\", "System32"),
+            r"C:\Windows\System32"
+        );
+        assert_eq!(lexical_join!(r"C:\Windows\", ""), r"C:\Windows\"); // Go: "C:\Windows"
+        assert_eq!(lexical_join!(r"C:\", "Windows"), r"C:\Windows");
+        assert_eq!(lexical_join!(r"C:", "a"), "C:a");
+        assert_eq!(lexical_join!(r"C:", r"a\b"), r"C:a\b");
+        assert_eq!(lexical_join!(r"C:", "a", "b"), r"C:a\b");
+        assert_eq!(lexical_join!(r"C:", "", "b"), "C:b");
+        assert_eq!(lexical_join!(r"C:", "", "", "b"), "C:b");
+        assert_eq!(lexical_join!(r"C:", ""), "C:"); // Go: "C:."
+        assert_eq!(lexical_join!(r"C:", "", ""), "C:"); // Go: "C:."
+        assert_eq!(lexical_join!(r"C:.", "a"), r"C:.\a"); // Go: "C:a"
+        assert_eq!(lexical_join!(r"C:a", "b"), r"C:a\b");
+        assert_eq!(lexical_join!(r"C:a", "b", "d"), r"C:a\b\d");
+        assert_eq!(lexical_join!(r"\\host\share", "foo"), r"\\host\share\foo");
+        assert_eq!(lexical_join!(r"\\host\share\foo"), r"\\host\share\foo");
+        assert_eq!(
+            lexical_join!(r"//host/share", "foo/bar"),
+            r"//host/share\foo/bar"
+        ); // Go: "\\host\share\foo\bar"
+        assert_eq!(lexical_join!(r"\"), r"\");
+        assert_eq!(lexical_join!(r"\", ""), r"\");
+        assert_eq!(lexical_join!(r"\", "a"), r"\a");
+        assert_eq!(lexical_join!(r"\\", "a"), r"\\a"); // Go: "\a"
+        assert_eq!(lexical_join!(r"\", "a", "b"), r"\a\b");
+        assert_eq!(lexical_join!(r"\\", "a", "b"), r"\\a\b"); // Go: "\a\b"
+        assert_eq!(lexical_join!(r"\", r"\\a\b", "c"), r"\a\b\c");
+        assert_eq!(lexical_join!(r"\\a", "b", "c"), r"\\a\b\c"); // Go: "\a\b\c"
+        assert_eq!(lexical_join!(r"\\a\", "b", "c"), r"\\a\b\c"); // Go: "\a\b\c"
 
         // Redo the tests with a "\" before each component
-        for c in cases {
-            let mut p = PathBuf::from(c.0[0]);
+        assert_eq!(lexical_join!("directory", r"\file"), r"directory\file");
+        assert_eq!(
+            lexical_join!(r"C:\Windows\", r"\System32"),
+            r"C:\Windows\System32"
+        );
+        assert_eq!(lexical_join!(r"C:\Windows\", r"\"), r"C:\Windows\"); // Go: "C:\Windows"
+        assert_eq!(lexical_join!(r"C:\", r"\Windows"), r"C:\Windows");
+        assert_eq!(lexical_join!(r"C:", r"\a"), "C:a");
+        assert_eq!(lexical_join!(r"C:", r"\a\b"), r"C:a\b");
+        assert_eq!(lexical_join!(r"C:", r"\a", r"\b"), r"C:a\b");
+        assert_eq!(lexical_join!(r"C:", r"\", r"\b"), "C:b");
+        assert_eq!(lexical_join!(r"C:", r"\", r"\", r"\b"), "C:b");
+        assert_eq!(lexical_join!(r"C:", r"\"), "C:"); // Go: "C:."
+        assert_eq!(lexical_join!(r"C:", r"\", r"\"), "C:"); // Go: "C:."
+        assert_eq!(lexical_join!(r"C:.", r"\a"), r"C:.\a"); // Go: "C:a"
+        assert_eq!(lexical_join!(r"C:a", r"\b"), r"C:a\b");
+        assert_eq!(lexical_join!(r"C:a", r"\b", r"\d"), r"C:a\b\d");
+        assert_eq!(lexical_join!(r"\\host\share", r"\foo"), r"\\host\share\foo");
+        assert_eq!(lexical_join!(r"\\host\share\foo"), r"\\host\share\foo");
+        assert_eq!(
+            lexical_join!(r"//host/share", r"\foo/bar"),
+            r"//host/share\foo/bar"
+        ); // Go: "\\host\share\foo\bar"
+        assert_eq!(lexical_join!(r"\"), r"\");
+        assert_eq!(lexical_join!(r"\", r"\"), r"\");
+        assert_eq!(lexical_join!(r"\", r"\a"), r"\a");
+        assert_eq!(lexical_join!(r"\\", r"\a"), r"\\a"); // Go: "\a"
+        assert_eq!(lexical_join!(r"\", r"\a", r"\b"), r"\a\b");
+        assert_eq!(lexical_join!(r"\\", r"\a", r"\b"), r"\\a\b"); // Go: "\a\b"
+        assert_eq!(lexical_join!(r"\", r"\\\a\b", r"\c"), r"\a\b\c");
+        assert_eq!(lexical_join!(r"\\a", r"\b", r"\c"), r"\\a\b\c"); // Go: "\a\b\c"
+        assert_eq!(lexical_join!(r"\\a\", r"\b", r"\c"), r"\\a\b\c"); // Go: "\a\b\c"
+    }
 
-            for s in &c.0[1..] {
-                p.lexical_push(String::from(r"\") + s);
-            }
-
-            assert_eq!(p.as_os_str(), c.1);
-        }
+    macro_rules! relative {
+        ($a:literal, $b:literal) => {
+            Path::new($b).relative_to($a).map(|p| p.into_os_string())
+        };
     }
 
     #[test]
     #[cfg(unix)]
     fn relative_to_test() {
-        let cases = &[
-            ("a/b", "a/b", "."),
-            ("a/b/.", "a/b", "."),
-            ("a/b", "a/b/.", "."),
-            ("./a/b", "a/b", "."),
-            ("a/b", "./a/b", "."),
-            ("ab/cd", "ab/cde", "../cde"),
-            ("ab/cd", "ab/c", "../c"),
-            ("a/b", "a/b/c/d", "c/d"),
-            ("a/b", "a/b/../c", "../c"),
-            ("a/b/../c", "a/b", "../b"),
-            ("a/b/c", "a/c/d", "../../c/d"),
-            ("a/b", "c/d", "../../c/d"),
-            ("a/b/c/d", "a/b", "../.."),
-            ("a/b/c/d", "a/b/", "../.."),
-            ("a/b/c/d/", "a/b", "../.."),
-            ("a/b/c/d/", "a/b/", "../.."),
-            ("../../a/b", "../../a/b/c/d", "c/d"),
-            ("/a/b", "/a/b", "."),
-            ("/a/b/.", "/a/b", "."),
-            ("/a/b", "/a/b/.", "."),
-            ("/ab/cd", "/ab/cde", "../cde"),
-            ("/ab/cd", "/ab/c", "../c"),
-            ("/a/b", "/a/b/c/d", "c/d"),
-            ("/a/b", "/a/b/../c", "../c"),
-            ("/a/b/../c", "/a/b", "../b"),
-            ("/a/b/c", "/a/c/d", "../../c/d"),
-            ("/a/b", "/c/d", "../../c/d"),
-            ("/a/b/c/d", "/a/b", "../.."),
-            ("/a/b/c/d", "/a/b/", "../.."),
-            ("/a/b/c/d/", "/a/b", "../.."),
-            ("/a/b/c/d/", "/a/b/", "../.."),
-            ("/../../a/b", "/../../a/b/c/d", "c/d"),
-            (".", "a/b", "a/b"),
-            (".", "..", ".."),
-        ];
-
-        for c in cases {
-            let p = Path::new(c.1).relative_to(c.0);
-            assert!(p.is_some());
-            assert_eq!(p.unwrap().as_os_str(), c.2);
-        }
+        assert_eq_some!(relative!("a/b", "a/b"), ".");
+        assert_eq_some!(relative!("a/b/.", "a/b"), ".");
+        assert_eq_some!(relative!("a/b", "a/b/."), ".");
+        assert_eq_some!(relative!("./a/b", "a/b"), ".");
+        assert_eq_some!(relative!("a/b", "./a/b"), ".");
+        assert_eq_some!(relative!("ab/cd", "ab/cde"), "../cde");
+        assert_eq_some!(relative!("ab/cd", "ab/c"), "../c");
+        assert_eq_some!(relative!("a/b", "a/b/c/d"), "c/d");
+        assert_eq_some!(relative!("a/b", "a/b/../c"), "../c");
+        assert_eq_some!(relative!("a/b/../c", "a/b"), "../b");
+        assert_eq_some!(relative!("a/b/c", "a/c/d"), "../../c/d");
+        assert_eq_some!(relative!("a/b", "c/d"), "../../c/d");
+        assert_eq_some!(relative!("a/b/c/d", "a/b"), "../..");
+        assert_eq_some!(relative!("a/b/c/d", "a/b/"), "../..");
+        assert_eq_some!(relative!("a/b/c/d/", "a/b"), "../..");
+        assert_eq_some!(relative!("a/b/c/d/", "a/b/"), "../..");
+        assert_eq_some!(relative!("../../a/b", "../../a/b/c/d"), "c/d");
+        assert_eq_some!(relative!("/a/b", "/a/b"), ".");
+        assert_eq_some!(relative!("/a/b/.", "/a/b"), ".");
+        assert_eq_some!(relative!("/a/b", "/a/b/."), ".");
+        assert_eq_some!(relative!("/ab/cd", "/ab/cde"), "../cde");
+        assert_eq_some!(relative!("/ab/cd", "/ab/c"), "../c");
+        assert_eq_some!(relative!("/a/b", "/a/b/c/d"), "c/d");
+        assert_eq_some!(relative!("/a/b", "/a/b/../c"), "../c");
+        assert_eq_some!(relative!("/a/b/../c", "/a/b"), "../b");
+        assert_eq_some!(relative!("/a/b/c", "/a/c/d"), "../../c/d");
+        assert_eq_some!(relative!("/a/b", "/c/d"), "../../c/d");
+        assert_eq_some!(relative!("/a/b/c/d", "/a/b"), "../..");
+        assert_eq_some!(relative!("/a/b/c/d", "/a/b/"), "../..");
+        assert_eq_some!(relative!("/a/b/c/d/", "/a/b"), "../..");
+        assert_eq_some!(relative!("/a/b/c/d/", "/a/b/"), "../..");
+        assert_eq_some!(relative!("/../../a/b", "/../../a/b/c/d"), "c/d");
+        assert_eq_some!(relative!(".", "a/b"), "a/b");
+        assert_eq_some!(relative!(".", ".."), "..");
 
         // Can't do purely lexically
-        let cases = &[
-            ("..", "."),
-            ("..", "a"),
-            ("../..", ".."),
-            ("a", "/a"),
-            ("/a", "a"),
-        ];
-
-        for c in cases {
-            assert!(Path::new(c.1).relative_to(c.0).is_none());
-        }
+        assert!(relative!("..", ".").is_none());
+        assert!(relative!("..", "a").is_none());
+        assert!(relative!("../..", "..").is_none());
+        assert!(relative!("a", "/a").is_none());
+        assert!(relative!("/a", "a").is_none());
     }
 
     #[test]
     #[cfg(windows)]
     fn relative_to_test() {
-        let cases = &[
-            (r"C:a\b\c", r"C:a/b/d", r"..\d"),
-            (r"C:\Projects", r"c:\projects\src", r"src"),
-            (r"C:\Projects", r"c:\projects", r"."),
-            (r"C:\Projects\a\..", r"c:\projects", r"."),
-        ];
-
-        for c in cases {
-            let p = Path::new(c.1).relative_to(c.0);
-            assert!(p.is_some());
-            assert_eq!(p.unwrap().as_os_str(), c.2);
-        }
+        assert_eq_some!(relative!(r"C:a\b\c", r"C:a/b/d"), r"..\d");
+        assert_eq_some!(relative!(r"C:\Projects", r"c:\projects\src"), r"src");
+        assert_eq_some!(relative!(r"C:\Projects", r"c:\projects"), r".");
+        assert_eq_some!(relative!(r"C:\Projects\a\..", r"c:\projects"), r".");
 
         // Can't do purely lexically
-        let cases = &[
-            ("..", "."),
-            ("..", "a"),
-            (r"..\..", ".."),
-            ("a", r"\a"),
-            (r"\a", "a"),
-        ];
-
-        for c in cases {
-            assert!(Path::new(c.1).relative_to(c.0).is_none());
-        }
+        assert!(relative!("..", ".").is_none());
+        assert!(relative!("..", "a").is_none());
+        assert!(relative!(r"..\..", "..").is_none());
+        assert!(relative!("a", r"\a").is_none());
+        assert!(relative!(r"\a", "a").is_none());
 
         // There is no relative path
-        let cases = &[(r"C:\", r"D:\"), (r"C:", r"D:")];
+        assert!(relative!(r"C:\", r"D:\").is_none());
+        assert!(relative!(r"C:", r"D:").is_none());
+    }
 
-        for c in cases {
-            assert!(Path::new(c.1).relative_to(c.0).is_none());
-        }
+    macro_rules! try_relative {
+        ($a:literal, $b:literal) => {
+            Path::new($b)
+                .try_relative_to($a)
+                .map(|p| p.into_os_string())
+        };
     }
 
     #[test]
@@ -1106,48 +1140,40 @@ mod tests {
     fn try_relative_to_test() {
         use std::env;
 
-        let cases = &[
-            ("a/b", "a/b", "."),
-            ("a/b/.", "a/b", "."),
-            ("a/b", "a/b/.", "."),
-            ("./a/b", "a/b", "."),
-            ("a/b", "./a/b", "."),
-            ("ab/cd", "ab/cde", "../cde"),
-            ("ab/cd", "ab/c", "../c"),
-            ("a/b", "a/b/c/d", "c/d"),
-            ("a/b", "a/b/../c", "../c"),
-            ("a/b/../c", "a/b", "../b"),
-            ("a/b/c", "a/c/d", "../../c/d"),
-            ("a/b", "c/d", "../../c/d"),
-            ("a/b/c/d", "a/b", "../.."),
-            ("a/b/c/d", "a/b/", "../.."),
-            ("a/b/c/d/", "a/b", "../.."),
-            ("a/b/c/d/", "a/b/", "../.."),
-            ("../../a/b", "../../a/b/c/d", "c/d"),
-            ("/a/b", "/a/b", "."),
-            ("/a/b/.", "/a/b", "."),
-            ("/a/b", "/a/b/.", "."),
-            ("/ab/cd", "/ab/cde", "../cde"),
-            ("/ab/cd", "/ab/c", "../c"),
-            ("/a/b", "/a/b/c/d", "c/d"),
-            ("/a/b", "/a/b/../c", "../c"),
-            ("/a/b/../c", "/a/b", "../b"),
-            ("/a/b/c", "/a/c/d", "../../c/d"),
-            ("/a/b", "/c/d", "../../c/d"),
-            ("/a/b/c/d", "/a/b", "../.."),
-            ("/a/b/c/d", "/a/b/", "../.."),
-            ("/a/b/c/d/", "/a/b", "../.."),
-            ("/a/b/c/d/", "/a/b/", "../.."),
-            ("/../../a/b", "/../../a/b/c/d", "c/d"),
-            (".", "a/b", "a/b"),
-            (".", "..", ".."),
-        ];
-
-        for c in cases {
-            let p = Path::new(c.1).try_relative_to(c.0);
-            assert!(p.is_ok());
-            assert_eq!(p.unwrap().as_os_str(), c.2);
-        }
+        assert_eq_ok!(try_relative!("a/b", "a/b"), ".");
+        assert_eq_ok!(try_relative!("a/b/.", "a/b"), ".");
+        assert_eq_ok!(try_relative!("a/b", "a/b/."), ".");
+        assert_eq_ok!(try_relative!("./a/b", "a/b"), ".");
+        assert_eq_ok!(try_relative!("a/b", "./a/b"), ".");
+        assert_eq_ok!(try_relative!("ab/cd", "ab/cde"), "../cde");
+        assert_eq_ok!(try_relative!("ab/cd", "ab/c"), "../c");
+        assert_eq_ok!(try_relative!("a/b", "a/b/c/d"), "c/d");
+        assert_eq_ok!(try_relative!("a/b", "a/b/../c"), "../c");
+        assert_eq_ok!(try_relative!("a/b/../c", "a/b"), "../b");
+        assert_eq_ok!(try_relative!("a/b/c", "a/c/d"), "../../c/d");
+        assert_eq_ok!(try_relative!("a/b", "c/d"), "../../c/d");
+        assert_eq_ok!(try_relative!("a/b/c/d", "a/b"), "../..");
+        assert_eq_ok!(try_relative!("a/b/c/d", "a/b/"), "../..");
+        assert_eq_ok!(try_relative!("a/b/c/d/", "a/b"), "../..");
+        assert_eq_ok!(try_relative!("a/b/c/d/", "a/b/"), "../..");
+        assert_eq_ok!(try_relative!("../../a/b", "../../a/b/c/d"), "c/d");
+        assert_eq_ok!(try_relative!("/a/b", "/a/b"), ".");
+        assert_eq_ok!(try_relative!("/a/b/.", "/a/b"), ".");
+        assert_eq_ok!(try_relative!("/a/b", "/a/b/."), ".");
+        assert_eq_ok!(try_relative!("/ab/cd", "/ab/cde"), "../cde");
+        assert_eq_ok!(try_relative!("/ab/cd", "/ab/c"), "../c");
+        assert_eq_ok!(try_relative!("/a/b", "/a/b/c/d"), "c/d");
+        assert_eq_ok!(try_relative!("/a/b", "/a/b/../c"), "../c");
+        assert_eq_ok!(try_relative!("/a/b/../c", "/a/b"), "../b");
+        assert_eq_ok!(try_relative!("/a/b/c", "/a/c/d"), "../../c/d");
+        assert_eq_ok!(try_relative!("/a/b", "/c/d"), "../../c/d");
+        assert_eq_ok!(try_relative!("/a/b/c/d", "/a/b"), "../..");
+        assert_eq_ok!(try_relative!("/a/b/c/d", "/a/b/"), "../..");
+        assert_eq_ok!(try_relative!("/a/b/c/d/", "/a/b"), "../..");
+        assert_eq_ok!(try_relative!("/a/b/c/d/", "/a/b/"), "../..");
+        assert_eq_ok!(try_relative!("/../../a/b", "/../../a/b/c/d"), "c/d");
+        assert_eq_ok!(try_relative!(".", "a/b"), "a/b");
+        assert_eq_ok!(try_relative!(".", ".."), "..");
 
         // The result depends on the current directory
         if let Ok(c) = env::current_dir() {
@@ -1157,37 +1183,24 @@ mod tests {
                 root.push("..");
             }
 
-            let cases = &[
-                ("..", ".", c.base().to_path_buf()),
-                ("..", "a", c.base().join("a")),
-                ("../..", "..", c.dir().base().to_path_buf()),
-                ("a", "/a", root.join("a")),
-                ("/a", "a", Path::new("..").lexical_join(c).join("a")),
-            ];
-
-            for c in cases {
-                let p = Path::new(c.1).try_relative_to(c.0);
-                assert!(p.is_ok());
-                assert_eq!(p.unwrap().as_os_str(), c.2);
-            }
+            assert_eq_ok!(try_relative!("..", "."), c.base().to_path_buf());
+            assert_eq_ok!(try_relative!("..", "a"), c.base().join("a"));
+            assert_eq_ok!(try_relative!("../..", ".."), c.dir().base().to_path_buf());
+            assert_eq_ok!(try_relative!("a", "/a"), root.join("a"));
+            assert_eq_ok!(
+                try_relative!("/a", "a"),
+                Path::new("..").lexical_join(c).join("a")
+            );
         }
     }
 
     #[test]
     #[cfg(windows)]
     fn try_relative_to_test() {
-        let cases = &[
-            (r"C:a\b\c", r"C:a/b/d", r"..\d"),
-            (r"C:\Projects", r"c:\projects\src", r"src"),
-            (r"C:\Projects", r"c:\projects", r"."),
-            (r"C:\Projects\a\..", r"c:\projects", r"."),
-        ];
-
-        for c in cases {
-            let p = Path::new(c.1).try_relative_to(c.0);
-            assert!(p.is_ok());
-            assert_eq!(p.unwrap().as_os_str(), c.2);
-        }
+        assert_eq_ok!(try_relative!(r"C:a\b\c", r"C:a/b/d"), r"..\d");
+        assert_eq_ok!(try_relative!(r"C:\Projects", r"c:\projects\src"), r"src");
+        assert_eq_ok!(try_relative!(r"C:\Projects", r"c:\projects"), r".");
+        assert_eq_ok!(try_relative!(r"C:\Projects\a\..", r"c:\projects"), r".");
 
         // TODO: there are some cases where there is no relative paths. Need to change the return
         // type of try_relative_to.
@@ -1198,119 +1211,122 @@ mod tests {
         //}
     }
 
+    macro_rules! rooted_join {
+        ($a:literal, $($b:literal),*) => {
+            {
+                let mut path = PathBuf::from($a);
+
+                $(
+                    path = path.rooted_join($b);
+                )*
+
+                path
+            }.as_os_str()
+        };
+    }
+
     #[test]
     #[cfg(unix)]
     fn rooted_join_test() {
-        let cases = &[
-            ("/usr", "lib", "/usr/lib"),
-            ("/usr", "/lib", "/usr/lib"),
-            ("/usr", "lib/..", "/usr"),
-            ("/", "..", "/"),
-        ];
+        assert_eq!(rooted_join!("/usr", "lib"), "/usr/lib");
+        assert_eq!(rooted_join!("/usr", "/lib"), "/usr/lib");
+        assert_eq!(rooted_join!("/usr", "lib/.."), "/usr");
+        assert_eq!(rooted_join!("/", ".."), "/");
 
-        for c in cases {
-            assert_eq!(Path::new(c.0).rooted_join(c.1).as_os_str(), c.2);
-        }
-
-        let cases = &[
-            ("/usr", "../etc/passwd", "/usr/etc/passwd"),
-            ("/usr", "/../etc/passwd", "/usr/etc/passwd"),
-            ("/usr", "lib/../../etc/passwd", "/usr/etc/passwd"),
-            ("/usr", "../usr-", "/usr/usr-"),
-        ];
-
-        for c in cases {
-            assert_eq!(Path::new(c.0).rooted_join(c.1).as_os_str(), c.2);
-        }
+        assert_eq!(rooted_join!("/usr", "../etc/passwd"), "/usr/etc/passwd");
+        assert_eq!(rooted_join!("/usr", "/../etc/passwd"), "/usr/etc/passwd");
+        assert_eq!(
+            rooted_join!("/usr", "lib/../../etc/passwd"),
+            "/usr/etc/passwd"
+        );
+        assert_eq!(rooted_join!("/usr", "../usr-"), "/usr/usr-");
     }
 
     #[test]
     #[cfg(windows)]
     fn rooted_join_test() {
-        let cases = &[
-            (r"C:\Windows", "System32", r"C:\Windows\System32"),
-            (r"C:\Windows", "System32", r"C:\Windows\System32"),
-            (r"C:\Windows", "System32/..", r"C:\Windows"),
-            (r"C:\", "..", r"C:\"),
-        ];
+        assert_eq!(
+            rooted_join!(r"C:\Windows", "System32"),
+            r"C:\Windows\System32"
+        );
+        assert_eq!(
+            rooted_join!(r"C:\Windows", "System32"),
+            r"C:\Windows\System32"
+        );
+        assert_eq!(rooted_join!(r"C:\Windows", "System32/.."), r"C:\Windows");
+        assert_eq!(rooted_join!(r"C:\", ".."), r"C:\");
 
-        for c in cases {
-            assert_eq!(Path::new(c.0).rooted_join(c.1).as_os_str(), c.2);
-        }
+        assert_eq!(
+            rooted_join!(r"C:\Windows", r"..\System32"),
+            r"C:\Windows\System32"
+        );
+        assert_eq!(
+            rooted_join!(r"C:\Windows", r"\..\System32"),
+            r"C:\Windows\System32"
+        );
+        assert_eq!(
+            rooted_join!(r"C:\Windows", r"System\..\..\System32"),
+            r"C:\Windows\System32"
+        );
+        assert_eq!(
+            rooted_join!(r"C:\Windows", r"..\Windows-"),
+            r"C:\Windows\Windows-"
+        );
+    }
 
-        let cases = &[
-            (r"C:\Windows", r"..\System32", r"C:\Windows\System32"),
-            (r"C:\Windows", r"\..\System32", r"C:\Windows\System32"),
-            (
-                r"C:\Windows",
-                r"System\..\..\System32",
-                r"C:\Windows\System32",
-            ),
-            (r"C:\Windows", r"..\Windows-", r"C:\Windows\Windows-"),
-        ];
+    macro_rules! try_rooted_join {
+        ($a:literal, $($b:literal),*) => {
+            {
+                let mut res = Ok(PathBuf::from($a));
 
-        for c in cases {
-            assert_eq!(Path::new(c.0).rooted_join(c.1).as_os_str(), c.2);
-        }
+                $(
+                    res = res.and_then(|p| p.try_rooted_join($b));
+                )*
+
+                res
+            }.map(|p| p.into_os_string())
+        };
     }
 
     #[test]
     #[cfg(unix)]
     fn try_rooted_join_test() {
-        let cases = &[
-            ("/usr", "lib", "/usr/lib"),
-            ("/usr", "/lib", "/usr/lib"),
-            ("/usr", "lib/..", "/usr"),
-            ("/", "..", "/"),
-        ];
+        assert_eq_ok!(try_rooted_join!("/usr", "lib"), "/usr/lib");
+        assert_eq_ok!(try_rooted_join!("/usr", "/lib"), "/usr/lib");
+        assert_eq_ok!(try_rooted_join!("/usr", "lib/.."), "/usr");
+        assert_eq_ok!(try_rooted_join!("/", ".."), "/");
 
-        for c in cases {
-            let path = Path::new(c.0).try_rooted_join(c.1);
-            assert!(path.is_ok());
-            assert_eq!(path.unwrap().as_os_str(), c.2);
-        }
-
-        let cases = &[
-            ("/usr", "../etc/passwd"),        // /etc/passwd
-            ("/usr", "/../etc/passwd"),       // /etc/passwd
-            ("/usr", "lib/../../etc/passwd"), // /etc/passwd
-            ("/usr", "../usr-"),              // /usr-
-        ];
-
-        for c in cases {
-            assert!(Path::new(c.0).try_rooted_join(c.1).is_err());
-        }
+        assert!(try_rooted_join!("/usr", "../etc/passwd").is_err()); // /etc/passwd
+        assert!(try_rooted_join!("/usr", "/../etc/passwd").is_err()); // /etc/passwd
+        assert!(try_rooted_join!("/usr", "lib/../../etc/passwd").is_err()); // /etc/passwd
+        assert!(try_rooted_join!("/usr", "../usr-").is_err()); // /usr-
     }
 
     #[test]
     #[cfg(windows)]
     fn try_rooted_join_test() {
-        let cases = &[
-            (r"C:\Windows", "System32", r"C:\Windows\System32"),
-            (r"C:\Windows", "System32", r"C:\Windows\System32"),
-            (r"C:\Windows", "System32/..", r"C:\Windows"),
-            (r"C:\", "..", r"C:\"),
-        ];
+        assert_eq_ok!(
+            try_rooted_join!(r"C:\Windows", "System32"),
+            r"C:\Windows\System32"
+        );
+        assert_eq_ok!(
+            try_rooted_join!(r"C:\Windows", "System32"),
+            r"C:\Windows\System32"
+        );
+        assert_eq_ok!(
+            try_rooted_join!(r"C:\Windows", "System32/.."),
+            r"C:\Windows"
+        );
+        assert_eq_ok!(try_rooted_join!(r"C:\", ".."), r"C:\");
 
-        for c in cases {
-            let path = Path::new(c.0).try_rooted_join(c.1);
-            assert!(path.is_ok());
-            assert_eq!(path.unwrap().as_os_str(), c.2);
-        }
-
-        let cases = &[
-            (r"C:\Windows", r"..\System32", r"C:\Windows\System32"),
-            (r"C:\Windows", r"\..\System32", r"C:\Windows\System32"),
-            (
-                r"C:\Windows",
-                r"System\..\..\System32",
-                r"C:\Windows\System32",
-            ),
-            (r"C:\Windows", r"..\Windows-", r"C:\Windows\Windows-"),
-        ];
-
-        for c in cases {
-            assert!(Path::new(c.0).try_rooted_join(c.1).is_err());
-        }
+        assert!(try_rooted_join!(r"C:\Windows", r"..\System32", r"C:\Windows\System32").is_err());
+        assert!(try_rooted_join!(r"C:\Windows", r"\..\System32", r"C:\Windows\System32").is_err());
+        assert!(try_rooted_join!(
+            r"C:\Windows",
+            r"System\..\..\System32",
+            r"C:\Windows\System32"
+        )
+        .is_err());
+        assert!(try_rooted_join!(r"C:\Windows", r"..\Windows-", r"C:\Windows\Windows-").is_err());
     }
 }
