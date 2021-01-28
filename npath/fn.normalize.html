@@ -1,0 +1,37 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `normalize` fn in crate `npath`."><meta name="keywords" content="rust, rustlang, rust-lang, normalize"><title>npath::normalize - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../ayu.css" disabled ><script id="default-settings"></script><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc fn"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../npath/index.html'><div class='logo-container rust-logo'><img src='../rust-logo.png' alt='logo'></div></a><div class="sidebar-elems"><p class="location"><a href="index.html">npath</a></p><div id="sidebar-vars" data-name="normalize" data-ty="fn" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../src/npath/lib.rs.html#131-135" title="goto source code">[src]</a></span><span class="in-band">Function <a href="index.html">npath</a>::<wbr><a class="fn" href="">normalize</a></span></h1><pre class="rust fn">pub fn normalize&lt;P:&nbsp;<a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html" title="struct std::path::Path">Path</a>&gt;&gt;(path: P) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/std/path/struct.PathBuf.html" title="struct std::path::PathBuf">PathBuf</a></pre><div class="docblock"><p>Returns the shortest equivalent path by pure lexical processing.</p>
+<p>It applies the following rules:</p>
+<ol>
+<li>replaces multiple <code>/</code> with a single one,</li>
+<li>eliminates each <code>.</code> path name element (the current directory),</li>
+<li>eliminates each inner <code>..</code> path name element (the parent directory) along
+with the non-<code>..</code> element that precedes it,</li>
+<li>eliminates <code>..</code> elements that begin a rooted path,
+that is, replace <code>/..</code> by <code>/</code> at the beginning of a path</li>
+</ol>
+<h1 id="differences-with-fscanonicalize" class="section-header"><a href="#differences-with-fscanonicalize">Differences with <code>fs::canonicalize</code></a></h1>
+<p>This function <strong>does not touch the filesystem, ever</strong>:</p>
+<ul>
+<li>it does not resolve symlinks,</li>
+<li>it does not check if files/directories exists,</li>
+<li>if the given path is relative, it returns a relative path, etc.</li>
+</ul>
+<p>If <code>/a/b</code> is a symlink to <code>/d/e</code>, then <code>/a/b/../c</code> is <code>/d/c</code> (and not <code>/a/c</code> that this
+function will return).</p>
+<h1 id="example" class="section-header"><a href="#example">Example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>;
+<span class="kw">use</span> <span class="ident">npath</span>::<span class="ident">normalize</span>;
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">normalize</span>(<span class="string">&quot;usr/lib&quot;</span>), <span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">&quot;usr/lib&quot;</span>));
+    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">normalize</span>(<span class="string">&quot;usr//lib&quot;</span>), <span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">&quot;usr/lib&quot;</span>));
+    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">normalize</span>(<span class="string">&quot;usr/lib/.&quot;</span>), <span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">&quot;usr/lib&quot;</span>));
+    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">normalize</span>(<span class="string">&quot;usr/lib/gcc/..&quot;</span>), <span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">&quot;usr/lib&quot;</span>));
+    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">normalize</span>(<span class="string">&quot;/../usr/lib&quot;</span>), <span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">&quot;/usr/lib&quot;</span>));
+    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">normalize</span>(<span class="string">&quot;/../usr/bin/../././/lib&quot;</span>), <span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">&quot;/usr/lib&quot;</span>));
+}</pre></div>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../" data-current-crate="npath"></div>
+    <script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>
