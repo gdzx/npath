@@ -18,6 +18,7 @@
 //! | -                      | [`NormPathExt::is_inside`]       |
 //! | -                      | [`NormPathExt::relative_to`]     |
 //! | -                      | [`NormPathExt::try_relative_to`] |
+//! | -                      | [`NormPathExt::resolved`]        |
 //! | -                      | [`NormPathExt::rooted_join`]     |
 //! | -                      | [`NormPathExt::try_rooted_join`] |
 //!
@@ -287,6 +288,54 @@ pub trait NormPathExt {
     /// ```
     fn try_relative_to<P: AsRef<Path>>(&self, base: P) -> Result<PathBuf>;
 
+    /// Returns the normalized equivalent of `self` with intermediate symlinks resolved.
+    ///
+    /// The longest prefix of `self` such that each component exist on the filesystem is
+    /// canonicalized, the remaining path is appended, and the result is normalized.
+    ///
+    /// # Limitations
+    ///
+    /// The prefix considered for canonicalization ends at the first component of `self` that does
+    /// not exist. The only exception is if the whole path exists, then it is canonicalized.
+    ///
+    /// For example, assuming only `/usr` and `/usr/lib` exist, `/usr/liz/../lib/rust` refers to
+    /// `/usr/lib/rust`, but only `/usr` is canonicalized since neither `/usr/lib/rust` nor
+    /// `/usr/liz` exist.
+    ///
+    /// [`NormPathExt::normalize`] limitations also apply in most cases. Use [`Path::canonicalize`]
+    /// if you need to get the true canonical path.
+    ///
+    /// # Differences with [`Path::canonicalize`]
+    ///
+    /// - This method works for path do not exist on the filesystem.
+    /// - The path is normalized with the same limitations as [`NormPathExt::normalize`]. In
+    ///   particular, the suffix that does not exist might contain ".." components that can replace
+    ///   canonicalized components.
+    /// - If `self` is relative and no prefix can be canonicalized (does not exist in the CWD),
+    ///   then the result is relative.
+    ///
+    /// # Differences with [`NormPathExt::normalize`]
+    ///
+    /// - This method does not perform pure lexical processing, and returns a [`std::io::Result`].
+    /// - The prefix that is canonicalized has its intermediate symlinks resolved, without the
+    ///   limitations of [`NormPathExt::normalize`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::path::{Path, PathBuf};
+    /// use npath::NormPathExt;
+    ///
+    /// assert_eq!(Path::new("usr/lib").resolved().unwrap(),                 PathBuf::from("usr/lib"));
+    /// assert_eq!(Path::new("usr//lib").resolved().unwrap(),                PathBuf::from("usr/lib"));
+    /// assert_eq!(Path::new("usr/lib/.").resolved().unwrap(),               PathBuf::from("usr/lib"));
+    /// assert_eq!(Path::new("usr/lib/gcc/..").resolved().unwrap(),          PathBuf::from("usr/lib"));
+    /// assert_eq!(Path::new("/usr/lib").resolved().unwrap(),                PathBuf::from("/usr/lib"));
+    /// assert_eq!(Path::new("/../usr/lib").resolved().unwrap(),             PathBuf::from("/usr/lib"));
+    /// assert_eq!(Path::new("/usr/bin/../././/lib").resolved().unwrap(),    PathBuf::from("/usr/lib"));
+    /// ```
+    fn resolved(&self) -> Result<PathBuf>;
+
     /// Returns `path` restricted to `self`.
     ///
     /// This methods works as if `base` was the root directory. The returned path is guaranteed to
@@ -543,6 +592,33 @@ impl NormPathExt for Path {
                 }
             }
         }
+    }
+
+    fn resolved(&self) -> Result<PathBuf> {
+        if self.exists() {
+            return self.canonicalize();
+        }
+
+        let mut path = PathBuf::new();
+        let mut components = self.components().into_iter();
+        let mut last = None;
+
+        for c in &mut components {
+            if !path.lexical_join(c).exists() {
+                last = Some(c);
+                break;
+            }
+
+            path.lexical_push(c);
+        }
+
+        if let Some(c) = last {
+            path.lexical_push(c);
+        }
+
+        path.lexical_push(components.as_path());
+
+        Ok(path.normalize())
     }
 
     fn rooted_join<P: AsRef<Path>>(&self, path: P) -> PathBuf {
