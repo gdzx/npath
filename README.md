@@ -1,6 +1,6 @@
 # Normalized Unix Paths
 
-[![Build Status](https://travis-ci.org/gdzx/npath.svg?branch=master)](https://travis-ci.org/gdzx/npath)
+[Documentation](https://gdzx.github.io/npath/npath/)
 
 Part of this API is the subject of an issue in the CLI working group:
 [Cross-platform File System Abstractions] and a pre-RFC: [Additional Path
