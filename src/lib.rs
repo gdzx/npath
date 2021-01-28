@@ -14,7 +14,7 @@
 //! | [`Path::file_name`]    | [`NormPathExt::base`]            |
 //! | [`Path::parent`]       | [`NormPathExt::dir`]             |
 //! | [`Path::join`]         | [`NormPathExt::lexical_join`]    |
-//! | [`Path::canonicalize`] | [`NormPathExt::normalize`]       |
+//! | [`Path::canonicalize`] | [`NormPathExt::normalized`]      |
 //! | -                      | [`NormPathExt::is_inside`]       |
 //! | -                      | [`NormPathExt::relative_to`]     |
 //! | -                      | [`NormPathExt::try_relative_to`] |
@@ -218,7 +218,7 @@ pub trait NormPathExt {
     /// If `/a/b` is a symlink to `/d/e`, for `/a/b/../c`:
     ///
     /// - [`Path::canonicalize`] returns `/d/c`.
-    /// - [`NormPathExt::normalize`] returns `/a/c`.
+    /// - [`NormPathExt::normalized`] returns `/a/c`.
     ///
     /// # Example
     ///
@@ -226,14 +226,14 @@ pub trait NormPathExt {
     /// use std::path::{Path, PathBuf};
     /// use npath::NormPathExt;
     ///
-    /// assert_eq!(Path::new("usr/lib").normalize(),                 PathBuf::from("usr/lib"));
-    /// assert_eq!(Path::new("usr//lib").normalize(),                PathBuf::from("usr/lib"));
-    /// assert_eq!(Path::new("usr/lib/.").normalize(),               PathBuf::from("usr/lib"));
-    /// assert_eq!(Path::new("usr/lib/gcc/..").normalize(),          PathBuf::from("usr/lib"));
-    /// assert_eq!(Path::new("/../usr/lib").normalize(),             PathBuf::from("/usr/lib"));
-    /// assert_eq!(Path::new("/../usr/bin/../././/lib").normalize(), PathBuf::from("/usr/lib"));
+    /// assert_eq!(Path::new("usr/lib").normalized(),                 PathBuf::from("usr/lib"));
+    /// assert_eq!(Path::new("usr//lib").normalized(),                PathBuf::from("usr/lib"));
+    /// assert_eq!(Path::new("usr/lib/.").normalized(),               PathBuf::from("usr/lib"));
+    /// assert_eq!(Path::new("usr/lib/gcc/..").normalized(),          PathBuf::from("usr/lib"));
+    /// assert_eq!(Path::new("/../usr/lib").normalized(),             PathBuf::from("/usr/lib"));
+    /// assert_eq!(Path::new("/../usr/bin/../././/lib").normalized(), PathBuf::from("/usr/lib"));
     /// ```
-    fn normalize(&self) -> PathBuf;
+    fn normalized(&self) -> PathBuf;
 
     /// Returns `path` appended to `self`.
     ///
@@ -302,23 +302,23 @@ pub trait NormPathExt {
     /// `/usr/lib/rust`, but only `/usr` is canonicalized since neither `/usr/lib/rust` nor
     /// `/usr/liz` exist.
     ///
-    /// [`NormPathExt::normalize`] limitations also apply in most cases. Use [`Path::canonicalize`]
+    /// [`NormPathExt::normalized`] limitations also apply in most cases. Use [`Path::canonicalize`]
     /// if you need to get the true canonical path.
     ///
     /// # Differences with [`Path::canonicalize`]
     ///
     /// - This method works for path do not exist on the filesystem.
-    /// - The path is normalized with the same limitations as [`NormPathExt::normalize`]. In
+    /// - The path is normalized with the same limitations as [`NormPathExt::normalized`]. In
     ///   particular, the suffix that does not exist might contain ".." components that can replace
     ///   canonicalized components.
     /// - If `self` is relative and no prefix can be canonicalized (does not exist in the CWD),
     ///   then the result is relative.
     ///
-    /// # Differences with [`NormPathExt::normalize`]
+    /// # Differences with [`NormPathExt::normalized`]
     ///
     /// - This method does not perform pure lexical processing, and returns a [`std::io::Result`].
     /// - The prefix that is canonicalized has its intermediate symlinks resolved, without the
-    ///   limitations of [`NormPathExt::normalize`].
+    ///   limitations of [`NormPathExt::normalized`].
     ///
     /// # Example
     ///
@@ -368,7 +368,7 @@ pub trait NormPathExt {
     ///
     /// `self` and `path` are converted to absolute path with [`NormPathExt::absolute`], they are
     /// joined with [`NormPathExt::lexical_join`], and the result is normalized with
-    /// [`NormPathExt::normalize`].
+    /// [`NormPathExt::normalized`].
     ///
     /// # Differences with [`NormPathExt::rooted_join`]
     ///
@@ -435,8 +435,8 @@ impl NormPathExt for Path {
     }
 
     fn is_inside<P: AsRef<Path>>(&self, base: P) -> bool {
-        let base = base.as_ref().normalize();
-        let path = self.normalize();
+        let base = base.as_ref().normalized();
+        let path = self.normalized();
 
         let mut base_components = base.components();
         let mut path_components = path.components();
@@ -464,7 +464,7 @@ impl NormPathExt for Path {
         }
     }
 
-    fn normalize(&self) -> PathBuf {
+    fn normalized(&self) -> PathBuf {
         let mut stack: Vec<Component> = vec![];
 
         for component in self.components() {
@@ -504,8 +504,8 @@ impl NormPathExt for Path {
     }
 
     fn relative_to<P: AsRef<Path>>(&self, base: P) -> Option<PathBuf> {
-        let base = base.as_ref().normalize();
-        let path = self.normalize();
+        let base = base.as_ref().normalized();
+        let path = self.normalized();
 
         if base.has_root() != path.has_root() {
             return None;
@@ -556,8 +556,8 @@ impl NormPathExt for Path {
     }
 
     fn try_relative_to<P: AsRef<Path>>(&self, base: P) -> Result<PathBuf> {
-        let base = base.as_ref().absolute()?.normalize();
-        let path = self.absolute()?.normalize();
+        let base = base.as_ref().absolute()?.normalized();
+        let path = self.absolute()?.normalized();
 
         let mut base_components = base.components();
         let mut path_components = path.components();
@@ -618,7 +618,7 @@ impl NormPathExt for Path {
 
         path.lexical_push(components.as_path());
 
-        Ok(path.normalize())
+        Ok(path.normalized())
     }
 
     fn rooted_join<P: AsRef<Path>>(&self, path: P) -> PathBuf {
@@ -628,11 +628,11 @@ impl NormPathExt for Path {
     fn rooted_join2<P: AsRef<Path>>(&self, path: P) -> PathBuf {
         let path = path.as_ref();
 
-        // Ensure path is absolute so normalize can eliminate all ".." components
+        // Ensure path is absolute so normalization can eliminate all ".." components
         let path = if path.is_relative() {
-            Path::new("/").join(path).normalize()
+            Path::new("/").join(path).normalized()
         } else {
-            path.normalize()
+            path.normalized()
         };
 
         self.lexical_join(path)
@@ -641,8 +641,8 @@ impl NormPathExt for Path {
     // <https://github.com/django/django/blob/master/django/utils/_os.py>
     fn try_rooted_join<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf> {
         // Make absolute and normalize all paths
-        let base = self.absolute()?.normalize();
-        let path = self.lexical_join(path).absolute()?.normalize();
+        let base = self.absolute()?.normalized();
+        let path = self.lexical_join(path).absolute()?.normalized();
 
         // For `path` to be located inside `base`, either:
         // - It starts with `base` + "/"
@@ -901,13 +901,13 @@ mod tests {
 
     macro_rules! normalize {
         ($a:literal) => {
-            Path::new($a).normalize().as_os_str()
+            Path::new($a).normalized().as_os_str()
         };
     }
 
     #[test]
     #[cfg(unix)]
-    fn normalize_test() {
+    fn normalized_test() {
         // Already clean
         assert_eq!(normalize!("abc"), "abc");
         assert_eq!(normalize!("abc/def"), "abc/def");
@@ -965,7 +965,7 @@ mod tests {
 
     #[test]
     #[cfg(windows)]
-    fn normalize_test() {
+    fn normalized_test() {
         assert_eq!(normalize!(r"c:"), r"c:"); // Go: "c:."
         assert_eq!(normalize!(r"c:\"), r"c:\");
         assert_eq!(normalize!(r"c:\abc"), r"c:\abc");

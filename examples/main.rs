@@ -14,7 +14,7 @@ enum Answer {
 }
 
 fn absolute(s: &str) -> Answer {
-    Path::new(s).absolute().unwrap().normalize().into()
+    Path::new(s).absolute().unwrap().normalized().into()
 }
 
 fn basename(s: &str) -> Answer {
@@ -22,7 +22,7 @@ fn basename(s: &str) -> Answer {
 }
 
 fn dirname(s: &str) -> Answer {
-    Path::new(s).dir().normalize().into()
+    Path::new(s).dir().normalized().into()
 }
 
 fn extension(s: &str) -> Answer {
@@ -44,11 +44,11 @@ fn join(s: &str) -> Answer {
 
 fn lexical_join(s: &str) -> Answer {
     let v: Vec<_> = s.splitn(2, " ").collect();
-    Path::new(v[0]).lexical_join(v[1]).normalize().into()
+    Path::new(v[0]).lexical_join(v[1]).normalized().into()
 }
 
 fn normalize(s: &str) -> Answer {
-    Path::new(s).normalize().into()
+    Path::new(s).normalized().into()
 }
 
 fn relative_to(s: &str) -> Answer {
