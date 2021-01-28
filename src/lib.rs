@@ -326,6 +326,7 @@ pub trait NormPathExt {
     /// use std::path::{Path, PathBuf};
     /// use npath::NormPathExt;
     ///
+    /// # if cfg!(unix) {
     /// assert_eq!(Path::new("usr/lib").resolved().unwrap(),                 PathBuf::from("usr/lib"));
     /// assert_eq!(Path::new("usr//lib").resolved().unwrap(),                PathBuf::from("usr/lib"));
     /// assert_eq!(Path::new("usr/lib/.").resolved().unwrap(),               PathBuf::from("usr/lib"));
@@ -333,6 +334,7 @@ pub trait NormPathExt {
     /// assert_eq!(Path::new("/usr/lib").resolved().unwrap(),                PathBuf::from("/usr/lib"));
     /// assert_eq!(Path::new("/../usr/lib").resolved().unwrap(),             PathBuf::from("/usr/lib"));
     /// assert_eq!(Path::new("/usr/bin/../././/lib").resolved().unwrap(),    PathBuf::from("/usr/lib"));
+    /// # }
     /// ```
     fn resolved(&self) -> Result<PathBuf>;
 
