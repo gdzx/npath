@@ -26,8 +26,7 @@ use std::ffi::{OsStr, OsString};
 use std::io::{Error, ErrorKind, Result};
 use std::path::{is_separator, Component, Path, PathBuf, Prefix, PrefixComponent, MAIN_SEPARATOR};
 
-const MAIN_SEPARATOR_STR: &'static str =
-    unsafe { std::str::from_utf8_unchecked(&[MAIN_SEPARATOR as u8]) };
+const MAIN_SEPARATOR_STR: &str = unsafe { std::str::from_utf8_unchecked(&[MAIN_SEPARATOR as u8]) };
 
 /// Extension trait for [`PathBuf`].
 pub trait NormPathBufExt {
@@ -70,9 +69,9 @@ impl NormPathBufExt for PathBuf {
             return;
         }
 
-        if !base.is_empty()
-            && !is_separator(*base.last().unwrap() as char)
-            && !(prefix_is_disk && Some(base.len()) == prefix_len)
+        if !(base.is_empty()
+            || is_separator(*base.last().unwrap() as char)
+            || (prefix_is_disk && Some(base.len()) == prefix_len))
         {
             base.push(MAIN_SEPARATOR as u8);
         }
@@ -532,7 +531,7 @@ impl NormPathExt for Path {
                         p.push("..");
                     }
 
-                    while let Some(_) = base_components.next() {
+                    for _ in base_components {
                         p.push("..");
                     }
 
@@ -571,7 +570,7 @@ impl NormPathExt for Path {
                         p.push("..");
                     }
 
-                    while let Some(_) = base_components.next() {
+                    for _ in base_components {
                         p.push("..");
                     }
 
@@ -592,7 +591,7 @@ impl NormPathExt for Path {
         }
 
         let mut path = PathBuf::new();
-        let mut components = self.components().into_iter();
+        let mut components = self.components();
         let mut last = None;
 
         for c in &mut components {
@@ -658,13 +657,13 @@ fn are_equal(a: &Component, b: &Component) -> bool {
     if cfg!(windows) {
         return a.as_os_str().to_ascii_lowercase() == b.as_os_str().to_ascii_lowercase();
     }
-    return a == b;
+    a == b
 }
 
 fn get_prefix(path: &Path) -> Option<PrefixComponent> {
     path.components().next().and_then(|c| {
         if let Component::Prefix(p) = c {
-            return Some(p);
+            Some(p)
         } else {
             None
         }
