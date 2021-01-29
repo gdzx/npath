@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["base_name","Returns the last path component, following the final `/`."],["dir_name","Returns the path up to, but not including, the final `/`."],["normalize","Returns the shortest equivalent path by pure lexical processing."]],"trait":[["NormPathBufExt","Extension trait for `PathBuf`."],["NormPathExt","Extension trait for `Path`."]]});
+initSidebarItems({"trait":[["NormPathBufExt","Extension trait for [`PathBuf`]."],["NormPathExt","Extension trait for [`Path`]."]]});
