@@ -1,35 +1,25 @@
 #![feature(const_str_from_utf8_unchecked)]
 #![feature(osstring_ascii)]
 
-//! Normalized Unix Paths
+//! Normalized Paths
 //!
-//! - Pure lexical processing path normalization.
-//! - Concatenation of absolute paths.
-//! - POSIX [`dirname(3)`] and [`basename(3)`] equivalents.
+//! `npath` is a Rust library providing methods for cross-platform lexical path processing and
+//! normalization. These methods are implemented in extension traits to [`Path`] and [`PathBuf`].
 //!
-//! # [`Path`]
+//! # Usage
 //!
-//! | std                    | npath                            |
-//! |------------------------|----------------------------------|
-//! | [`Path::file_name`]    | [`NormPathExt::base`]            |
-//! | [`Path::parent`]       | [`NormPathExt::dir`]             |
-//! | [`Path::join`]         | [`NormPathExt::lexical_join`]    |
-//! | [`Path::canonicalize`] | [`NormPathExt::normalized`]      |
-//! | -                      | [`NormPathExt::is_inside`]       |
-//! | -                      | [`NormPathExt::relative_to`]     |
-//! | -                      | [`NormPathExt::try_relative_to`] |
-//! | -                      | [`NormPathExt::resolved`]        |
-//! | -                      | [`NormPathExt::rooted_join`]     |
-//! | -                      | [`NormPathExt::try_rooted_join`] |
+//! Add `npath` to your `Cargo.toml`:
 //!
-//! # [`PathBuf`]
+//! ```toml
+//! [dependencies]
+//! npath = { git = "https://github.com/gdzx/npath" }
+//! ```
 //!
-//! | std                  | npath                             |
-//! |----------------------|-----------------------------------|
-//! | [`PathBuf::push`]    | [`NormPathBufExt::lexical_push`] |
+//! Import the following traits:
 //!
-//! [`dirname(3)`]: http://man7.org/linux/man-pages/man3/dirname.3.html
-//! [`basename(3)`]: http://man7.org/linux/man-pages/man3/basename.3.html
+//! ```rust
+//! use npath::{NormPathExt, NormPathBufExt};
+//! ```
 
 use std::env;
 use std::ffi::{OsStr, OsString};
