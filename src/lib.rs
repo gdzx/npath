@@ -20,6 +20,10 @@
 //! ```no_run
 //! use npath::{NormPathExt, NormPathBufExt};
 //! ```
+//!
+//! # Windows
+//!
+//! TODO: limitations (letter case, prefixes)
 
 use std::env;
 use std::ffi::{OsStr, OsString};
@@ -30,25 +34,9 @@ const MAIN_SEPARATOR_STR: &str = unsafe { std::str::from_utf8_unchecked(&[MAIN_S
 
 /// Extension trait for [`PathBuf`].
 pub trait NormPathBufExt {
-    /// Appends `path` to `self`.
+    /// Lexically appends `path` to `self`.
     ///
-    /// # Differences with [`PathBuf::push`]
-    ///
-    /// If `path` is absolute, it does not replace the current path.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use std::path::PathBuf;
-    /// use npath::NormPathBufExt;
-    ///
-    /// let mut path = PathBuf::from("/usr");
-    ///
-    /// path.lexical_push("bin");  // relative
-    /// path.lexical_push("/cat"); // absolute
-    ///
-    /// assert_eq!(path, PathBuf::from("/usr/bin/cat"));
-    /// ```
+    /// See [`NormPathExt::lexical_join].
     fn lexical_push<P: AsRef<Path>>(&mut self, path: P);
 }
 
@@ -82,12 +70,12 @@ impl NormPathBufExt for PathBuf {
 
 /// Extension trait for [`Path`].
 pub trait NormPathExt {
-    /// Returns the absolute path.
+    /// Returns the absolute equivalent of `self`.
     ///
-    /// - If the path is absolute, it returns the normalized equivalent.
-    /// - If the path is relative, it is appended to [`std::env::current_dir`].
+    /// - If `self` is absolute, it it is returned as is.
+    /// - If `self` is relative, it is lexically joined to [`std::env::current_dir`].
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use std::path::{Path, PathBuf};
@@ -103,16 +91,17 @@ pub trait NormPathExt {
     /// ```
     fn absolute(&self) -> Result<PathBuf>;
 
-    /// Returns the last path component.
+    /// Returns the last path component of `self`.
     ///
     /// See [`basename(3)`](http://man7.org/linux/man-pages/man3/basename.3.html).
     ///
     /// # Differences with [`Path::file_name`]
     ///
-    /// - Always returns a path (`/`, `.`, or `..`, whereas [`Path::file_name`] returns `None`).
-    /// - Returns a [`PathBuf`] instead of an [`OsStr`](std::ffi::OsStr).
+    /// - Always returns a path (eventually `/`, `.`, or `..`, when [`Path::file_name`] returns
+    ///   `None`).
+    /// - Returns a [`Path`] instead of an [`OsStr`](std::ffi::OsStr).
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use std::path::Path;
@@ -127,15 +116,15 @@ pub trait NormPathExt {
     /// ```
     fn base(&self) -> &Path;
 
-    /// Returns the path up to, but not including, the final component.
+    /// Returns `self` up to, but not including, the final component.
     ///
     /// See [`dirname(3)`](http://man7.org/linux/man-pages/man3/dirname.3.html).
     ///
     /// # Differences with [`Path::parent`]
     ///
-    /// - Always returns a path (`/` when [`Path::parent`] returns `None`).
+    /// Always returns a path (`/` when [`Path::parent`] returns `None`).
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use std::path::Path;
@@ -150,66 +139,89 @@ pub trait NormPathExt {
     /// ```
     fn dir(&self) -> &Path;
 
-    /// Returns whether `self` is lexically inside of `base`.
+    /// Returns whether `self` is lexically inside `base`.
     ///
-    /// `self` is considered "lexically inside" `base` if and only if:
+    /// `self` is considered "lexically inside" `base` (or a descendant of `base`) if and only if:
     ///
     /// - `self` and `base` are both relative, or both absolute.
     /// - `self` does not have any component outside of `base`.
     ///
-    /// When `base` is relative, it returns false if it is necessary to know the absolute path
-    /// (when it contains ".." followed by a normal component, there is no way to know whether it
-    /// is re-entering a previous directory or if it branches off). To avoid this edge case, ensure
-    /// both path are absolute with one of these methods:
+    /// Both paths are normalized before being compared.
     ///
-    /// - [`NormPathExt::absolute`].
-    /// - [`Path::canonicalize`].
+    /// # Limitations
     ///
-    /// # Example
+    /// When processing relative paths, if it is necessary to know the absolute path of either
+    /// `base` or `self`, this method returns `false`:
+    ///
+    /// - If `base` is absolute and `self` is relative, or the opposite, there is no way to know
+    ///   where `base` points to relative to `self` without using the absolute path of the CWD.
+    /// - If `base` and `self` are relative, and `base` is re-entrant (a parent component `..` is
+    ///   followed by a normal component), it is not possible to know whether `base` re-enters the
+    ///   directory it just left, or if it branches off to a sibling directory, without using the
+    ///   absolute path of the CWD. (Note that `self` can be re-entrant as shown in the examples.)
+    ///
+    /// To circumvent these limitations, you can ensure both path are absolute using one of
+    /// these methods:
+    ///
+    /// - [`NormPathExt::absolute`]: with the limitations of [`NormPathExt::normalized`].
+    /// - [`Path::canonicalize`]: without the limitations of [`NormPathExt::normalized`], but both
+    ///   paths must exist on the filesystem.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use std::path::Path;
     /// use npath::NormPathExt;
     ///
+    /// // Both absolute
     /// assert!(Path::new("/srv").is_inside("/"));
     /// assert!(Path::new("/srv").is_inside("/srv"));
     /// assert!(Path::new("/srv/file.txt").is_inside("/srv"));
     ///
+    /// // Both relative
     /// assert!(Path::new("srv").is_inside("srv"));
     /// assert!(Path::new("srv").is_inside("."));
     /// assert!(Path::new("srv").is_inside(".."));
-    /// assert!(Path::new("../srv").is_inside(".."));
+    /// assert!(Path::new("../srv").is_inside("..")); // self is re-entrent
     ///
-    /// assert!(!Path::new("srv").is_inside("../foo"));
-    /// assert!(!Path::new("/srv/..").is_inside("/srv"));
+    /// // One absolute, the other relative
     /// assert!(!Path::new("file.txt").is_inside("/srv"));
+    /// assert!(!Path::new("/srv/file.txt").is_inside("srv"));
+    ///
+    /// // self exits base
+    /// assert!(!Path::new("/srv/..").is_inside("/srv"));
+    ///
+    /// // base is re-entrent
+    /// assert!(!Path::new("srv").is_inside("../foo"));
     /// ```
     fn is_inside<P: AsRef<Path>>(&self, base: P) -> bool;
 
     /// Returns the normalized equivalent of `self`.
     ///
-    /// The returned path is the shortest equivalent path, normalized by pure lexical processing
-    /// with the following rules:
+    /// The returned path is the shortest equivalent, normalized by pure lexical processing with
+    /// the following rules:
     ///
     /// 1. Replace repeated `/` with a single one.
     /// 2. Eliminate `.` path components (the current directory).
-    /// 3. Consume inner `..` path components (the parent directory), including components preceded
-    ///    by a rooted path (replace `/..` by `/`).
+    /// 3. Collapse inner `..` path components (the parent directory), including components
+    ///    preceded by a rooted path (replace `/..` by `/`).
     ///
     /// # Differences with [`Path::canonicalize`]
     ///
     /// This function **does not touch the filesystem, ever**:
     ///
     /// - It does not resolve symlinks.
-    /// - It does not check if files/directories exists.
+    /// - It does not check if files/directories exist.
     /// - If the given path is relative, it returns a relative path.
     ///
-    /// If `/a/b` is a symlink to `/d/e`, for `/a/b/../c`:
+    /// # Limitations
+    ///
+    /// If `/a/b` is a symlink to `/d/e`, then for `/a/b/../c`:
     ///
     /// - [`Path::canonicalize`] returns `/d/c`.
     /// - [`NormPathExt::normalized`] returns `/a/c`.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use std::path::{Path, PathBuf};
@@ -224,22 +236,60 @@ pub trait NormPathExt {
     /// ```
     fn normalized(&self) -> PathBuf;
 
-    /// Returns `path` appended to `self`.
+    /// Returns `path` lexically joined to `self`.
     ///
-    /// See [`NormPathBufExt::lexical_push`].
+    /// # Differences with [`Path::join`]
+    ///
+    /// If `path` is absolute, it does not replace `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::path::{Path, PathBuf};
+    /// use npath::NormPathExt;
+    ///
+    /// assert_eq!(
+    ///     Path::new("/usr")
+    ///         .lexical_join("bin")   // relative
+    ///         .lexical_join("/cat"), // absolute
+    ///     PathBuf::from("/usr/bin/cat")
+    /// );
+    ///
+    /// assert_eq!(Path::new("/usr").lexical_join(".."), PathBuf::from("/usr/.."));
+    /// ```
     fn lexical_join<P: AsRef<Path>>(&self, path: P) -> PathBuf;
 
-    /// Returns the relative path from `base` to `self`.
+    /// Returns the normalized relative path from `base` to `self`.
     ///
-    /// The path is such that: `base.join(path) == self`.
+    /// If `self` cannot be made relative to `base`, the method returns `None`. The returned path,
+    /// if any, satisfies: `base.join(path) == self`. Both paths are normalized before being
+    /// compared, and the returned path is also normalized.
     ///
     /// # Differences with [`NormPathExt::try_relative_to`]
     ///
-    /// Only lexical operations are performed. If `self` can't be made relative to `base`, it
-    /// returns `None` (fetching the current directory is required, one path is absolute while the
-    /// other is relative, or the path have differents prefixes).
+    /// Only lexical operations are performed.
     ///
-    /// # Example
+    /// # Limitations
+    ///
+    /// The method returns `None` when it cannot determine the intermediate path components to
+    /// reach `self` from `base`, or fetching the CWD is required:
+    ///
+    /// - One path is absolute, but the other is relative.
+    /// - The paths are relative, `base` is above `self`, and they are both above the CWD (knowing
+    ///   its intermediate components is necessary).
+    ///
+    /// To circumvent these limitations, you can ensure both path are absolute using one of these
+    /// methods:
+    ///
+    /// - [`NormPathExt::absolute`]: with the limitations of [`NormPathExt::normalized`].
+    /// - [`Path::canonicalize`]: without the limitations of [`NormPathExt::normalized`], but both
+    ///   paths must exist on the filesystem.
+    ///
+    /// Note that on Windows, there is an inescapable limitation when the paths refer to different
+    /// locations (different drives, or network shares): there is no relative path between them
+    /// because they are not in the same namespace.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use std::path::{Path, PathBuf};
@@ -247,8 +297,15 @@ pub trait NormPathExt {
     ///
     /// assert_eq!(Path::new("/usr/lib").relative_to("/usr"), Some(PathBuf::from("lib")));
     /// assert_eq!(Path::new("usr/bin").relative_to("var"),   Some(PathBuf::from("../usr/bin")));
-    /// assert_eq!(Path::new("foo").relative_to("/"),         None);
-    /// assert_eq!(Path::new("foo").relative_to(".."),        None);
+    ///
+    /// assert_eq!(Path::new("lib").relative_to("/usr"), None);
+    /// assert_eq!(Path::new("/usr").relative_to("var"), None);
+    ///
+    /// assert_eq!(Path::new("foo").relative_to("/"),  None);
+    /// assert_eq!(Path::new("foo").relative_to(".."), None);
+    ///
+    /// assert_eq!(Path::new("..").relative_to("."), Some(PathBuf::from("..")));
+    /// assert_eq!(Path::new(".").relative_to(".."), None);
     /// ```
     fn relative_to<P: AsRef<Path>>(&self, base: P) -> Option<PathBuf>;
 
@@ -261,7 +318,7 @@ pub trait NormPathExt {
     /// A system call to determine the current working directory is required if one of `self` or
     /// `base` is relative.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use std::env;
@@ -275,33 +332,23 @@ pub trait NormPathExt {
     ///     assert_eq!(Path::new("foo").try_relative_to("..").unwrap(), cwd.base().join("foo"));
     /// }
     /// ```
+    #[doc(hidden)]
     fn try_relative_to<P: AsRef<Path>>(&self, base: P) -> Result<PathBuf>;
 
-    /// Returns the normalized equivalent of `self` with intermediate symlinks resolved.
+    /// Returns the normalized equivalent of `self`, with intermediate symlinks resolved.
     ///
-    /// The longest prefix of `self` such that each component exist on the filesystem is
-    /// canonicalized, the remaining path is appended, and the result is normalized.
-    ///
-    /// # Limitations
-    ///
-    /// The prefix considered for canonicalization ends at the first component of `self` that does
-    /// not exist. The only exception is if the whole path exists, then it is canonicalized.
-    ///
-    /// For example, assuming only `/usr` and `/usr/lib` exist, `/usr/liz/../lib/rust` refers to
-    /// `/usr/lib/rust`, but only `/usr` is canonicalized since neither `/usr/lib/rust` nor
-    /// `/usr/liz` exist.
-    ///
-    /// [`NormPathExt::normalized`] limitations also apply in most cases. Use [`Path::canonicalize`]
-    /// if you need to get the true canonical path.
+    /// The longest prefix of `self` where each component exist on the filesystem is canonicalized,
+    /// the remaining path is lexically adjoined, and the result is normalized.
     ///
     /// # Differences with [`Path::canonicalize`]
     ///
-    /// - This method works for path do not exist on the filesystem.
+    /// - This method works for paths that do not exist on the filesystem.
     /// - The path is normalized with the same limitations as [`NormPathExt::normalized`]. In
-    ///   particular, the suffix that does not exist might contain ".." components that can replace
-    ///   canonicalized components.
-    /// - If `self` is relative and no prefix can be canonicalized (does not exist in the CWD),
-    ///   then the result is relative.
+    ///   particular, a suffix might contain `..` components that can replace canonicalized
+    ///   components.
+    /// - If `self` is relative and no prefix component exists in the CWD (no prefix can be
+    ///   canonicalized), then the result is relative (it is simply the normalized equivalent of
+    ///   `self`).
     ///
     /// # Differences with [`NormPathExt::normalized`]
     ///
@@ -309,7 +356,24 @@ pub trait NormPathExt {
     /// - The prefix that is canonicalized has its intermediate symlinks resolved, without the
     ///   limitations of [`NormPathExt::normalized`].
     ///
-    /// # Example
+    /// # Limitations
+    ///
+    /// The prefix considered for canonicalization ends at the first component of `self` that does
+    /// not exist. The only exception is if the whole path exists, then it is canonicalized in
+    /// full.
+    ///
+    /// For example, assuming only `usr` and `usr/lib` exist, `usr/liz/../lib/rust` refers to
+    /// `usr/lib/rust`, but only `usr` is canonicalized since neither `usr/lib/rust` nor `usr/liz`
+    /// exist.
+    ///
+    /// [`NormPathExt::normalized`] limitations apply in most cases. If you need to get the true
+    /// canonical path, use [`Path::canonicalize`].
+    ///
+    /// TODO: I'm thinking that it is equally valid to start from the end and canonicalize the
+    /// longest prefix that exist instead. That's not what C++ `weakly_canonical` does but it feels
+    /// more correct.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use std::path::{Path, PathBuf};
@@ -329,10 +393,20 @@ pub trait NormPathExt {
 
     /// Returns `path` restricted to `self`.
     ///
-    /// This methods works as if `base` was the root directory. The returned path is guaranteed to
-    /// be lexically inside `base`.
+    /// This methods works as if `self` was the root directory. The returned path is guaranteed to
+    /// be lexically inside `self`.
     ///
-    /// # Example
+    /// # Differences with [`NormPathExt::try_rooted_join`]
+    ///
+    /// It does not return an error since the returned path is always inside `self`.
+    ///
+    /// # Limitations
+    ///
+    /// - Same limitations as [`NormPathExt::normalized`].
+    /// - The result can have a different meaning than what was intended since all the prefix `..`
+    ///   components are stripped away.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use std::path::{Path, PathBuf};
@@ -350,22 +424,20 @@ pub trait NormPathExt {
     /// ```
     fn rooted_join<P: AsRef<Path>>(&self, path: P) -> PathBuf;
 
-    /// Returns `path` restricted to `self`.
-    ///
-    /// See [`NormPathExt::rooted_join2`].
+    #[doc(hidden)]
     fn rooted_join2<P: AsRef<Path>>(&self, path: P) -> PathBuf;
 
     /// Returns `path` restricted to `self`.
     ///
-    /// `self` and `path` are converted to absolute path with [`NormPathExt::absolute`], they are
+    /// `self` and `path` are converted to absolute paths with [`NormPathExt::absolute`], they are
     /// joined with [`NormPathExt::lexical_join`], and the result is normalized with
     /// [`NormPathExt::normalized`].
     ///
     /// # Differences with [`NormPathExt::rooted_join`]
     ///
-    /// If `path` points to a location outside of `base`, it returns an error.
+    /// If the result points to a location outside of `base`, this method returns an error.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use std::path::{Path, PathBuf};
@@ -616,6 +688,8 @@ impl NormPathExt for Path {
         self.lexical_join(normalize_rooted(path.as_ref()))
     }
 
+    // This method is purely for demonstration purposes to show how easy it is to implement it from
+    // normalized and lexical_join. That could also serve as integration tests.
     fn rooted_join2<P: AsRef<Path>>(&self, path: P) -> PathBuf {
         let path = path.as_ref();
 
@@ -676,7 +750,7 @@ fn join_os_str<S1: AsRef<OsStr>, S2: AsRef<OsStr>>(a: S1, b: S2) -> OsString {
     res
 }
 
-// Eliminate all ".." components
+// Eliminates all ".." components
 fn normalize_rooted(path: &Path) -> PathBuf {
     let mut stack: Vec<&OsStr> = vec![];
 
