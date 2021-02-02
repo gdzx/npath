@@ -36,7 +36,7 @@ const MAIN_SEPARATOR_STR: &str = unsafe { std::str::from_utf8_unchecked(&[MAIN_S
 pub trait NormPathBufExt {
     /// Lexically appends `path` to `self`.
     ///
-    /// See [`NormPathExt::lexical_join].
+    /// See [`NormPathExt::lexical_join`].
     fn lexical_push<P: AsRef<Path>>(&mut self, path: P);
 }
 
