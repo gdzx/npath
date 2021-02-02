@@ -17,7 +17,7 @@
 //!
 //! Import the following traits:
 //!
-//! ```rust
+//! ```no_run
 //! use npath::{NormPathExt, NormPathBufExt};
 //! ```
 
