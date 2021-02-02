@@ -722,7 +722,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn absolute_test() {
+    fn test_absolute() {
         use std::env::current_dir;
         use std::ffi::OsString;
 
@@ -745,7 +745,7 @@ mod tests {
 
     #[test]
     #[cfg(windows)]
-    fn absolute_test() {
+    fn test_absolute() {
         use std::env::current_dir;
         use std::ffi::OsString;
 
@@ -774,7 +774,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn base_name_test() {
+    fn test_base() {
         assert_eq!(base!(""), ".");
         assert_eq!(base!("."), ".");
         assert_eq!(base!("/."), "/"); // POSIX: "."
@@ -790,7 +790,7 @@ mod tests {
 
     #[test]
     #[cfg(windows)]
-    fn base_name_test() {
+    fn test_base() {
         assert_eq!(base!(r"c:\"), r"\");
         assert_eq!(base!(r"c:."), ".");
         assert_eq!(base!(r"c:\a\b"), "b");
@@ -809,7 +809,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn dir_name_test() {
+    fn test_dir() {
         assert_eq!(dir!(""), ".");
         assert_eq!(dir!("."), ".");
         assert_eq!(dir!(".."), ".");
@@ -831,7 +831,7 @@ mod tests {
 
     #[test]
     #[cfg(windows)]
-    fn dir_name_test() {
+    fn test_dir() {
         assert_eq!(dir!(r"c:\"), r"c:\");
         assert_eq!(dir!(r"c:."), r"c:.");
         assert_eq!(dir!(r"c:\a\b"), r"c:\a");
@@ -852,7 +852,7 @@ mod tests {
     // TODO: Windows
     #[test]
     #[cfg(unix)]
-    fn is_inside_test() {
+    fn test_is_inside() {
         assert!(is_inside!("/", "/"));
         assert!(is_inside!(".", "."));
 
@@ -898,7 +898,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn normalized_test() {
+    fn test_normalized() {
         // Already clean
         assert_eq!(normalize!("abc"), "abc");
         assert_eq!(normalize!("abc/def"), "abc/def");
@@ -956,7 +956,7 @@ mod tests {
 
     #[test]
     #[cfg(windows)]
-    fn normalized_test() {
+    fn test_normalized() {
         assert_eq!(normalize!(r"c:"), r"c:"); // Go: "c:."
         assert_eq!(normalize!(r"c:\"), r"c:\");
         assert_eq!(normalize!(r"c:\abc"), r"c:\abc");
@@ -1002,7 +1002,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn lexical_join_test() {
+    fn test_lexical_join() {
         assert_eq!(lexical_join!("a", "b"), "a/b");
         assert_eq!(lexical_join!("a", ""), "a");
         assert_eq!(lexical_join!("", "b"), "b");
@@ -1053,7 +1053,7 @@ mod tests {
 
     #[test]
     #[cfg(windows)]
-    fn lexical_join_test() {
+    fn test_lexical_join() {
         assert_eq!(lexical_join!("directory", "file"), r"directory\file");
         assert_eq!(
             lexical_join!(r"C:\Windows\", "System32"),
@@ -1130,7 +1130,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn relative_to_test() {
+    fn test_relative_to() {
         assert_eq_some!(relative!("a/b", "a/b"), ".");
         assert_eq_some!(relative!("a/b/.", "a/b"), ".");
         assert_eq_some!(relative!("a/b", "a/b/."), ".");
@@ -1176,7 +1176,7 @@ mod tests {
 
     #[test]
     #[cfg(windows)]
-    fn relative_to_test() {
+    fn test_relative_to() {
         assert_eq_some!(relative!(r"C:a\b\c", r"C:a/b/d"), r"..\d");
         assert_eq_some!(relative!(r"C:\Projects", r"c:\projects\src"), r"src");
         assert_eq_some!(relative!(r"C:\Projects", r"c:\projects"), r".");
@@ -1204,7 +1204,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn try_relative_to_test() {
+    fn test_try_relative_to() {
         use std::env;
 
         assert_eq_ok!(try_relative!("a/b", "a/b"), ".");
@@ -1263,7 +1263,7 @@ mod tests {
 
     #[test]
     #[cfg(windows)]
-    fn try_relative_to_test() {
+    fn test_try_relative_to() {
         assert_eq_ok!(try_relative!(r"C:a\b\c", r"C:a/b/d"), r"..\d");
         assert_eq_ok!(try_relative!(r"C:\Projects", r"c:\projects\src"), r"src");
         assert_eq_ok!(try_relative!(r"C:\Projects", r"c:\projects"), r".");
@@ -1294,7 +1294,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn rooted_join_test() {
+    fn test_rooted_join() {
         assert_eq!(rooted_join!("/usr", "lib"), "/usr/lib");
         assert_eq!(rooted_join!("/usr", "/lib"), "/usr/lib");
         assert_eq!(rooted_join!("/usr", "lib/.."), "/usr");
@@ -1311,7 +1311,7 @@ mod tests {
 
     #[test]
     #[cfg(windows)]
-    fn rooted_join_test() {
+    fn test_rooted_join() {
         assert_eq!(
             rooted_join!(r"C:\Windows", "System32"),
             r"C:\Windows\System32"
@@ -1357,7 +1357,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn try_rooted_join_test() {
+    fn test_try_rooted_join() {
         assert_eq_ok!(try_rooted_join!("/usr", "lib"), "/usr/lib");
         assert_eq_ok!(try_rooted_join!("/usr", "/lib"), "/usr/lib");
         assert_eq_ok!(try_rooted_join!("/usr", "lib/.."), "/usr");
@@ -1371,7 +1371,7 @@ mod tests {
 
     #[test]
     #[cfg(windows)]
-    fn try_rooted_join_test() {
+    fn test_try_rooted_join() {
         assert_eq_ok!(
             try_rooted_join!(r"C:\Windows", "System32"),
             r"C:\Windows\System32"
