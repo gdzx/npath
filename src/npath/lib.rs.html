@@ -1400,6 +1400,80 @@
 <span id="1397">1397</span>
 <span id="1398">1398</span>
 <span id="1399">1399</span>
+<span id="1400">1400</span>
+<span id="1401">1401</span>
+<span id="1402">1402</span>
+<span id="1403">1403</span>
+<span id="1404">1404</span>
+<span id="1405">1405</span>
+<span id="1406">1406</span>
+<span id="1407">1407</span>
+<span id="1408">1408</span>
+<span id="1409">1409</span>
+<span id="1410">1410</span>
+<span id="1411">1411</span>
+<span id="1412">1412</span>
+<span id="1413">1413</span>
+<span id="1414">1414</span>
+<span id="1415">1415</span>
+<span id="1416">1416</span>
+<span id="1417">1417</span>
+<span id="1418">1418</span>
+<span id="1419">1419</span>
+<span id="1420">1420</span>
+<span id="1421">1421</span>
+<span id="1422">1422</span>
+<span id="1423">1423</span>
+<span id="1424">1424</span>
+<span id="1425">1425</span>
+<span id="1426">1426</span>
+<span id="1427">1427</span>
+<span id="1428">1428</span>
+<span id="1429">1429</span>
+<span id="1430">1430</span>
+<span id="1431">1431</span>
+<span id="1432">1432</span>
+<span id="1433">1433</span>
+<span id="1434">1434</span>
+<span id="1435">1435</span>
+<span id="1436">1436</span>
+<span id="1437">1437</span>
+<span id="1438">1438</span>
+<span id="1439">1439</span>
+<span id="1440">1440</span>
+<span id="1441">1441</span>
+<span id="1442">1442</span>
+<span id="1443">1443</span>
+<span id="1444">1444</span>
+<span id="1445">1445</span>
+<span id="1446">1446</span>
+<span id="1447">1447</span>
+<span id="1448">1448</span>
+<span id="1449">1449</span>
+<span id="1450">1450</span>
+<span id="1451">1451</span>
+<span id="1452">1452</span>
+<span id="1453">1453</span>
+<span id="1454">1454</span>
+<span id="1455">1455</span>
+<span id="1456">1456</span>
+<span id="1457">1457</span>
+<span id="1458">1458</span>
+<span id="1459">1459</span>
+<span id="1460">1460</span>
+<span id="1461">1461</span>
+<span id="1462">1462</span>
+<span id="1463">1463</span>
+<span id="1464">1464</span>
+<span id="1465">1465</span>
+<span id="1466">1466</span>
+<span id="1467">1467</span>
+<span id="1468">1468</span>
+<span id="1469">1469</span>
+<span id="1470">1470</span>
+<span id="1471">1471</span>
+<span id="1472">1472</span>
+<span id="1473">1473</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">const_str_from_utf8_unchecked</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">osstring_ascii</span>)]</span>
@@ -1423,6 +1497,10 @@
 <span class="doccomment">//! ```no_run</span>
 <span class="doccomment">//! use npath::{NormPathExt, NormPathBufExt};</span>
 <span class="doccomment">//! ```</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! # Windows</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! TODO: limitations (letter case, prefixes)</span>
 
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">env</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::{<span class="ident">OsStr</span>, <span class="ident">OsString</span>};
@@ -1433,25 +1511,9 @@
 
 <span class="doccomment">/// Extension trait for [`PathBuf`].</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">NormPathBufExt</span> {
-    <span class="doccomment">/// Appends `path` to `self`.</span>
+    <span class="doccomment">/// Lexically appends `path` to `self`.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// # Differences with [`PathBuf::push`]</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// If `path` is absolute, it does not replace the current path.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// use std::path::PathBuf;</span>
-    <span class="doccomment">/// use npath::NormPathBufExt;</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// let mut path = PathBuf::from(&quot;/usr&quot;);</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// path.lexical_push(&quot;bin&quot;);  // relative</span>
-    <span class="doccomment">/// path.lexical_push(&quot;/cat&quot;); // absolute</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// assert_eq!(path, PathBuf::from(&quot;/usr/bin/cat&quot;));</span>
-    <span class="doccomment">/// ```</span>
+    <span class="doccomment">/// See [`NormPathExt::lexical_join].</span>
     <span class="kw">fn</span> <span class="ident">lexical_push</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">path</span>: <span class="ident">P</span>);
 }
 
@@ -1485,12 +1547,12 @@
 
 <span class="doccomment">/// Extension trait for [`Path`].</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">NormPathExt</span> {
-    <span class="doccomment">/// Returns the absolute path.</span>
+    <span class="doccomment">/// Returns the absolute equivalent of `self`.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// - If the path is absolute, it returns the normalized equivalent.</span>
-    <span class="doccomment">/// - If the path is relative, it is appended to [`std::env::current_dir`].</span>
+    <span class="doccomment">/// - If `self` is absolute, it it is returned as is.</span>
+    <span class="doccomment">/// - If `self` is relative, it is lexically joined to [`std::env::current_dir`].</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">/// # Examples</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// use std::path::{Path, PathBuf};</span>
@@ -1506,16 +1568,17 @@
     <span class="doccomment">/// ```</span>
     <span class="kw">fn</span> <span class="ident">absolute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>;
 
-    <span class="doccomment">/// Returns the last path component.</span>
+    <span class="doccomment">/// Returns the last path component of `self`.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// See [`basename(3)`](http://man7.org/linux/man-pages/man3/basename.3.html).</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Differences with [`Path::file_name`]</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// - Always returns a path (`/`, `.`, or `..`, whereas [`Path::file_name`] returns `None`).</span>
-    <span class="doccomment">/// - Returns a [`PathBuf`] instead of an [`OsStr`](std::ffi::OsStr).</span>
+    <span class="doccomment">/// - Always returns a path (eventually `/`, `.`, or `..`, when [`Path::file_name`] returns</span>
+    <span class="doccomment">///   `None`).</span>
+    <span class="doccomment">/// - Returns a [`Path`] instead of an [`OsStr`](std::ffi::OsStr).</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">/// # Examples</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// use std::path::Path;</span>
@@ -1530,15 +1593,15 @@
     <span class="doccomment">/// ```</span>
     <span class="kw">fn</span> <span class="ident">base</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Path</span>;
 
-    <span class="doccomment">/// Returns the path up to, but not including, the final component.</span>
+    <span class="doccomment">/// Returns `self` up to, but not including, the final component.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// See [`dirname(3)`](http://man7.org/linux/man-pages/man3/dirname.3.html).</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Differences with [`Path::parent`]</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// - Always returns a path (`/` when [`Path::parent`] returns `None`).</span>
+    <span class="doccomment">/// Always returns a path (`/` when [`Path::parent`] returns `None`).</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">/// # Examples</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// use std::path::Path;</span>
@@ -1553,66 +1616,89 @@
     <span class="doccomment">/// ```</span>
     <span class="kw">fn</span> <span class="ident">dir</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Path</span>;
 
-    <span class="doccomment">/// Returns whether `self` is lexically inside of `base`.</span>
+    <span class="doccomment">/// Returns whether `self` is lexically inside `base`.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// `self` is considered &quot;lexically inside&quot; `base` if and only if:</span>
+    <span class="doccomment">/// `self` is considered &quot;lexically inside&quot; `base` (or a descendant of `base`) if and only if:</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// - `self` and `base` are both relative, or both absolute.</span>
     <span class="doccomment">/// - `self` does not have any component outside of `base`.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// When `base` is relative, it returns false if it is necessary to know the absolute path</span>
-    <span class="doccomment">/// (when it contains &quot;..&quot; followed by a normal component, there is no way to know whether it</span>
-    <span class="doccomment">/// is re-entering a previous directory or if it branches off). To avoid this edge case, ensure</span>
-    <span class="doccomment">/// both path are absolute with one of these methods:</span>
+    <span class="doccomment">/// Both paths are normalized before being compared.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// - [`NormPathExt::absolute`].</span>
-    <span class="doccomment">/// - [`Path::canonicalize`].</span>
+    <span class="doccomment">/// # Limitations</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">/// When processing relative paths, if it is necessary to know the absolute path of either</span>
+    <span class="doccomment">/// `base` or `self`, this method returns `false`:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// - If `base` is absolute and `self` is relative, or the opposite, there is no way to know</span>
+    <span class="doccomment">///   where `base` points to relative to `self` without using the absolute path of the CWD.</span>
+    <span class="doccomment">/// - If `base` and `self` are relative, and `base` is re-entrant (a parent component `..` is</span>
+    <span class="doccomment">///   followed by a normal component), it is not possible to know whether `base` re-enters the</span>
+    <span class="doccomment">///   directory it just left, or if it branches off to a sibling directory, without using the</span>
+    <span class="doccomment">///   absolute path of the CWD. (Note that `self` can be re-entrant as shown in the examples.)</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// To circumvent these limitations, you can ensure both path are absolute using one of</span>
+    <span class="doccomment">/// these methods:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// - [`NormPathExt::absolute`]: with the limitations of [`NormPathExt::normalized`].</span>
+    <span class="doccomment">/// - [`Path::canonicalize`]: without the limitations of [`NormPathExt::normalized`], but both</span>
+    <span class="doccomment">///   paths must exist on the filesystem.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Examples</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// use std::path::Path;</span>
     <span class="doccomment">/// use npath::NormPathExt;</span>
     <span class="doccomment">///</span>
+    <span class="doccomment">/// // Both absolute</span>
     <span class="doccomment">/// assert!(Path::new(&quot;/srv&quot;).is_inside(&quot;/&quot;));</span>
     <span class="doccomment">/// assert!(Path::new(&quot;/srv&quot;).is_inside(&quot;/srv&quot;));</span>
     <span class="doccomment">/// assert!(Path::new(&quot;/srv/file.txt&quot;).is_inside(&quot;/srv&quot;));</span>
     <span class="doccomment">///</span>
+    <span class="doccomment">/// // Both relative</span>
     <span class="doccomment">/// assert!(Path::new(&quot;srv&quot;).is_inside(&quot;srv&quot;));</span>
     <span class="doccomment">/// assert!(Path::new(&quot;srv&quot;).is_inside(&quot;.&quot;));</span>
     <span class="doccomment">/// assert!(Path::new(&quot;srv&quot;).is_inside(&quot;..&quot;));</span>
-    <span class="doccomment">/// assert!(Path::new(&quot;../srv&quot;).is_inside(&quot;..&quot;));</span>
+    <span class="doccomment">/// assert!(Path::new(&quot;../srv&quot;).is_inside(&quot;..&quot;)); // self is re-entrent</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// assert!(!Path::new(&quot;srv&quot;).is_inside(&quot;../foo&quot;));</span>
-    <span class="doccomment">/// assert!(!Path::new(&quot;/srv/..&quot;).is_inside(&quot;/srv&quot;));</span>
+    <span class="doccomment">/// // One absolute, the other relative</span>
     <span class="doccomment">/// assert!(!Path::new(&quot;file.txt&quot;).is_inside(&quot;/srv&quot;));</span>
+    <span class="doccomment">/// assert!(!Path::new(&quot;/srv/file.txt&quot;).is_inside(&quot;srv&quot;));</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// // self exits base</span>
+    <span class="doccomment">/// assert!(!Path::new(&quot;/srv/..&quot;).is_inside(&quot;/srv&quot;));</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// // base is re-entrent</span>
+    <span class="doccomment">/// assert!(!Path::new(&quot;srv&quot;).is_inside(&quot;../foo&quot;));</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">fn</span> <span class="ident">is_inside</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">base</span>: <span class="ident">P</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
 
     <span class="doccomment">/// Returns the normalized equivalent of `self`.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// The returned path is the shortest equivalent path, normalized by pure lexical processing</span>
-    <span class="doccomment">/// with the following rules:</span>
+    <span class="doccomment">/// The returned path is the shortest equivalent, normalized by pure lexical processing with</span>
+    <span class="doccomment">/// the following rules:</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// 1. Replace repeated `/` with a single one.</span>
     <span class="doccomment">/// 2. Eliminate `.` path components (the current directory).</span>
-    <span class="doccomment">/// 3. Consume inner `..` path components (the parent directory), including components preceded</span>
-    <span class="doccomment">///    by a rooted path (replace `/..` by `/`).</span>
+    <span class="doccomment">/// 3. Collapse inner `..` path components (the parent directory), including components</span>
+    <span class="doccomment">///    preceded by a rooted path (replace `/..` by `/`).</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Differences with [`Path::canonicalize`]</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This function **does not touch the filesystem, ever**:</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// - It does not resolve symlinks.</span>
-    <span class="doccomment">/// - It does not check if files/directories exists.</span>
+    <span class="doccomment">/// - It does not check if files/directories exist.</span>
     <span class="doccomment">/// - If the given path is relative, it returns a relative path.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// If `/a/b` is a symlink to `/d/e`, for `/a/b/../c`:</span>
+    <span class="doccomment">/// # Limitations</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// If `/a/b` is a symlink to `/d/e`, then for `/a/b/../c`:</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// - [`Path::canonicalize`] returns `/d/c`.</span>
     <span class="doccomment">/// - [`NormPathExt::normalized`] returns `/a/c`.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">/// # Examples</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// use std::path::{Path, PathBuf};</span>
@@ -1627,22 +1713,60 @@
     <span class="doccomment">/// ```</span>
     <span class="kw">fn</span> <span class="ident">normalized</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PathBuf</span>;
 
-    <span class="doccomment">/// Returns `path` appended to `self`.</span>
+    <span class="doccomment">/// Returns `path` lexically joined to `self`.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// See [`NormPathBufExt::lexical_push`].</span>
+    <span class="doccomment">/// # Differences with [`Path::join`]</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// If `path` is absolute, it does not replace `self`.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Examples</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">/// use std::path::{Path, PathBuf};</span>
+    <span class="doccomment">/// use npath::NormPathExt;</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// assert_eq!(</span>
+    <span class="doccomment">///     Path::new(&quot;/usr&quot;)</span>
+    <span class="doccomment">///         .lexical_join(&quot;bin&quot;)   // relative</span>
+    <span class="doccomment">///         .lexical_join(&quot;/cat&quot;), // absolute</span>
+    <span class="doccomment">///     PathBuf::from(&quot;/usr/bin/cat&quot;)</span>
+    <span class="doccomment">/// );</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// assert_eq!(Path::new(&quot;/usr&quot;).lexical_join(&quot;..&quot;), PathBuf::from(&quot;/usr/..&quot;));</span>
+    <span class="doccomment">/// ```</span>
     <span class="kw">fn</span> <span class="ident">lexical_join</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="ident">P</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PathBuf</span>;
 
-    <span class="doccomment">/// Returns the relative path from `base` to `self`.</span>
+    <span class="doccomment">/// Returns the normalized relative path from `base` to `self`.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// The path is such that: `base.join(path) == self`.</span>
+    <span class="doccomment">/// If `self` cannot be made relative to `base`, the method returns `None`. The returned path,</span>
+    <span class="doccomment">/// if any, satisfies: `base.join(path) == self`. Both paths are normalized before being</span>
+    <span class="doccomment">/// compared, and the returned path is also normalized.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Differences with [`NormPathExt::try_relative_to`]</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// Only lexical operations are performed. If `self` can&#39;t be made relative to `base`, it</span>
-    <span class="doccomment">/// returns `None` (fetching the current directory is required, one path is absolute while the</span>
-    <span class="doccomment">/// other is relative, or the path have differents prefixes).</span>
+    <span class="doccomment">/// Only lexical operations are performed.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">/// # Limitations</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The method returns `None` when it cannot determine the intermediate path components to</span>
+    <span class="doccomment">/// reach `self` from `base`, or fetching the CWD is required:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// - One path is absolute, but the other is relative.</span>
+    <span class="doccomment">/// - The paths are relative, `base` is above `self`, and they are both above the CWD (knowing</span>
+    <span class="doccomment">///   its intermediate components is necessary).</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// To circumvent these limitations, you can ensure both path are absolute using one of these</span>
+    <span class="doccomment">/// methods:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// - [`NormPathExt::absolute`]: with the limitations of [`NormPathExt::normalized`].</span>
+    <span class="doccomment">/// - [`Path::canonicalize`]: without the limitations of [`NormPathExt::normalized`], but both</span>
+    <span class="doccomment">///   paths must exist on the filesystem.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Note that on Windows, there is an inescapable limitation when the paths refer to different</span>
+    <span class="doccomment">/// locations (different drives, or network shares): there is no relative path between them</span>
+    <span class="doccomment">/// because they are not in the same namespace.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Examples</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// use std::path::{Path, PathBuf};</span>
@@ -1650,8 +1774,15 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// assert_eq!(Path::new(&quot;/usr/lib&quot;).relative_to(&quot;/usr&quot;), Some(PathBuf::from(&quot;lib&quot;)));</span>
     <span class="doccomment">/// assert_eq!(Path::new(&quot;usr/bin&quot;).relative_to(&quot;var&quot;),   Some(PathBuf::from(&quot;../usr/bin&quot;)));</span>
-    <span class="doccomment">/// assert_eq!(Path::new(&quot;foo&quot;).relative_to(&quot;/&quot;),         None);</span>
-    <span class="doccomment">/// assert_eq!(Path::new(&quot;foo&quot;).relative_to(&quot;..&quot;),        None);</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// assert_eq!(Path::new(&quot;lib&quot;).relative_to(&quot;/usr&quot;), None);</span>
+    <span class="doccomment">/// assert_eq!(Path::new(&quot;/usr&quot;).relative_to(&quot;var&quot;), None);</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// assert_eq!(Path::new(&quot;foo&quot;).relative_to(&quot;/&quot;),  None);</span>
+    <span class="doccomment">/// assert_eq!(Path::new(&quot;foo&quot;).relative_to(&quot;..&quot;), None);</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// assert_eq!(Path::new(&quot;..&quot;).relative_to(&quot;.&quot;), Some(PathBuf::from(&quot;..&quot;)));</span>
+    <span class="doccomment">/// assert_eq!(Path::new(&quot;.&quot;).relative_to(&quot;..&quot;), None);</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">fn</span> <span class="ident">relative_to</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">base</span>: <span class="ident">P</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>;
 
@@ -1664,7 +1795,7 @@
     <span class="doccomment">/// A system call to determine the current working directory is required if one of `self` or</span>
     <span class="doccomment">/// `base` is relative.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">/// # Examples</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// use std::env;</span>
@@ -1678,33 +1809,23 @@
     <span class="doccomment">///     assert_eq!(Path::new(&quot;foo&quot;).try_relative_to(&quot;..&quot;).unwrap(), cwd.base().join(&quot;foo&quot;));</span>
     <span class="doccomment">/// }</span>
     <span class="doccomment">/// ```</span>
+    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
     <span class="kw">fn</span> <span class="ident">try_relative_to</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">base</span>: <span class="ident">P</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>;
 
-    <span class="doccomment">/// Returns the normalized equivalent of `self` with intermediate symlinks resolved.</span>
+    <span class="doccomment">/// Returns the normalized equivalent of `self`, with intermediate symlinks resolved.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// The longest prefix of `self` such that each component exist on the filesystem is</span>
-    <span class="doccomment">/// canonicalized, the remaining path is appended, and the result is normalized.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Limitations</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The prefix considered for canonicalization ends at the first component of `self` that does</span>
-    <span class="doccomment">/// not exist. The only exception is if the whole path exists, then it is canonicalized.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// For example, assuming only `/usr` and `/usr/lib` exist, `/usr/liz/../lib/rust` refers to</span>
-    <span class="doccomment">/// `/usr/lib/rust`, but only `/usr` is canonicalized since neither `/usr/lib/rust` nor</span>
-    <span class="doccomment">/// `/usr/liz` exist.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [`NormPathExt::normalized`] limitations also apply in most cases. Use [`Path::canonicalize`]</span>
-    <span class="doccomment">/// if you need to get the true canonical path.</span>
+    <span class="doccomment">/// The longest prefix of `self` where each component exist on the filesystem is canonicalized,</span>
+    <span class="doccomment">/// the remaining path is lexically adjoined, and the result is normalized.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Differences with [`Path::canonicalize`]</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// - This method works for path do not exist on the filesystem.</span>
+    <span class="doccomment">/// - This method works for paths that do not exist on the filesystem.</span>
     <span class="doccomment">/// - The path is normalized with the same limitations as [`NormPathExt::normalized`]. In</span>
-    <span class="doccomment">///   particular, the suffix that does not exist might contain &quot;..&quot; components that can replace</span>
-    <span class="doccomment">///   canonicalized components.</span>
-    <span class="doccomment">/// - If `self` is relative and no prefix can be canonicalized (does not exist in the CWD),</span>
-    <span class="doccomment">///   then the result is relative.</span>
+    <span class="doccomment">///   particular, a suffix might contain `..` components that can replace canonicalized</span>
+    <span class="doccomment">///   components.</span>
+    <span class="doccomment">/// - If `self` is relative and no prefix component exists in the CWD (no prefix can be</span>
+    <span class="doccomment">///   canonicalized), then the result is relative (it is simply the normalized equivalent of</span>
+    <span class="doccomment">///   `self`).</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Differences with [`NormPathExt::normalized`]</span>
     <span class="doccomment">///</span>
@@ -1712,7 +1833,24 @@
     <span class="doccomment">/// - The prefix that is canonicalized has its intermediate symlinks resolved, without the</span>
     <span class="doccomment">///   limitations of [`NormPathExt::normalized`].</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">/// # Limitations</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The prefix considered for canonicalization ends at the first component of `self` that does</span>
+    <span class="doccomment">/// not exist. The only exception is if the whole path exists, then it is canonicalized in</span>
+    <span class="doccomment">/// full.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// For example, assuming only `usr` and `usr/lib` exist, `usr/liz/../lib/rust` refers to</span>
+    <span class="doccomment">/// `usr/lib/rust`, but only `usr` is canonicalized since neither `usr/lib/rust` nor `usr/liz`</span>
+    <span class="doccomment">/// exist.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// [`NormPathExt::normalized`] limitations apply in most cases. If you need to get the true</span>
+    <span class="doccomment">/// canonical path, use [`Path::canonicalize`].</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// TODO: I&#39;m thinking that it is equally valid to start from the end and canonicalize the</span>
+    <span class="doccomment">/// longest prefix that exist instead. That&#39;s not what C++ `weakly_canonical` does but it feels</span>
+    <span class="doccomment">/// more correct.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Examples</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// use std::path::{Path, PathBuf};</span>
@@ -1732,10 +1870,20 @@
 
     <span class="doccomment">/// Returns `path` restricted to `self`.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// This methods works as if `base` was the root directory. The returned path is guaranteed to</span>
-    <span class="doccomment">/// be lexically inside `base`.</span>
+    <span class="doccomment">/// This methods works as if `self` was the root directory. The returned path is guaranteed to</span>
+    <span class="doccomment">/// be lexically inside `self`.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">/// # Differences with [`NormPathExt::try_rooted_join`]</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// It does not return an error since the returned path is always inside `self`.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Limitations</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// - Same limitations as [`NormPathExt::normalized`].</span>
+    <span class="doccomment">/// - The result can have a different meaning than what was intended since all the prefix `..`</span>
+    <span class="doccomment">///   components are stripped away.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Examples</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// use std::path::{Path, PathBuf};</span>
@@ -1753,22 +1901,20 @@
     <span class="doccomment">/// ```</span>
     <span class="kw">fn</span> <span class="ident">rooted_join</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="ident">P</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PathBuf</span>;
 
-    <span class="doccomment">/// Returns `path` restricted to `self`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// See [`NormPathExt::rooted_join2`].</span>
+    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
     <span class="kw">fn</span> <span class="ident">rooted_join2</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="ident">P</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PathBuf</span>;
 
     <span class="doccomment">/// Returns `path` restricted to `self`.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// `self` and `path` are converted to absolute path with [`NormPathExt::absolute`], they are</span>
+    <span class="doccomment">/// `self` and `path` are converted to absolute paths with [`NormPathExt::absolute`], they are</span>
     <span class="doccomment">/// joined with [`NormPathExt::lexical_join`], and the result is normalized with</span>
     <span class="doccomment">/// [`NormPathExt::normalized`].</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Differences with [`NormPathExt::rooted_join`]</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// If `path` points to a location outside of `base`, it returns an error.</span>
+    <span class="doccomment">/// If the result points to a location outside of `base`, this method returns an error.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
+    <span class="doccomment">/// # Examples</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// ```</span>
     <span class="doccomment">/// use std::path::{Path, PathBuf};</span>
@@ -2019,6 +2165,8 @@
         <span class="self">self</span>.<span class="ident">lexical_join</span>(<span class="ident">normalize_rooted</span>(<span class="ident">path</span>.<span class="ident">as_ref</span>()))
     }
 
+    <span class="comment">// This method is purely for demonstration purposes to show how easy it is to implement it from</span>
+    <span class="comment">// normalized and lexical_join. That could also serve as integration tests.</span>
     <span class="kw">fn</span> <span class="ident">rooted_join2</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="ident">P</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PathBuf</span> {
         <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">as_ref</span>();
 
@@ -2079,7 +2227,7 @@
     <span class="ident">res</span>
 }
 
-<span class="comment">// Eliminate all &quot;..&quot; components</span>
+<span class="comment">// Eliminates all &quot;..&quot; components</span>
 <span class="kw">fn</span> <span class="ident">normalize_rooted</span>(<span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PathBuf</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stack</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">OsStr</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
 
