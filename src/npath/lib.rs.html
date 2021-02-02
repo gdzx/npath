@@ -1420,7 +1420,7 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Import the following traits:</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! ```rust</span>
+<span class="doccomment">//! ```no_run</span>
 <span class="doccomment">//! use npath::{NormPathExt, NormPathBufExt};</span>
 <span class="doccomment">//! ```</span>
 
@@ -2125,7 +2125,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">absolute_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_absolute</span>() {
         <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">env</span>::<span class="ident">current_dir</span>;
         <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">OsString</span>;
 
@@ -2148,7 +2148,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">absolute_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_absolute</span>() {
         <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">env</span>::<span class="ident">current_dir</span>;
         <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">OsString</span>;
 
@@ -2177,7 +2177,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">base_name_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_base</span>() {
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">base</span><span class="macro">!</span>(<span class="string">&quot;&quot;</span>), <span class="string">&quot;.&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">base</span><span class="macro">!</span>(<span class="string">&quot;.&quot;</span>), <span class="string">&quot;.&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">base</span><span class="macro">!</span>(<span class="string">&quot;/.&quot;</span>), <span class="string">&quot;/&quot;</span>); <span class="comment">// POSIX: &quot;.&quot;</span>
@@ -2193,7 +2193,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">base_name_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_base</span>() {
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">base</span><span class="macro">!</span>(<span class="string">r&quot;c:\&quot;</span>), <span class="string">r&quot;\&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">base</span><span class="macro">!</span>(<span class="string">r&quot;c:.&quot;</span>), <span class="string">&quot;.&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">base</span><span class="macro">!</span>(<span class="string">r&quot;c:\a\b&quot;</span>), <span class="string">&quot;b&quot;</span>);
@@ -2212,7 +2212,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">dir_name_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_dir</span>() {
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">dir</span><span class="macro">!</span>(<span class="string">&quot;&quot;</span>), <span class="string">&quot;.&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">dir</span><span class="macro">!</span>(<span class="string">&quot;.&quot;</span>), <span class="string">&quot;.&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">dir</span><span class="macro">!</span>(<span class="string">&quot;..&quot;</span>), <span class="string">&quot;.&quot;</span>);
@@ -2234,7 +2234,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">dir_name_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_dir</span>() {
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">dir</span><span class="macro">!</span>(<span class="string">r&quot;c:\&quot;</span>), <span class="string">r&quot;c:\&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">dir</span><span class="macro">!</span>(<span class="string">r&quot;c:.&quot;</span>), <span class="string">r&quot;c:.&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">dir</span><span class="macro">!</span>(<span class="string">r&quot;c:\a\b&quot;</span>), <span class="string">r&quot;c:\a&quot;</span>);
@@ -2255,7 +2255,7 @@
     <span class="comment">// TODO: Windows</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">is_inside_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_is_inside</span>() {
         <span class="macro">assert</span><span class="macro">!</span>(<span class="macro">is_inside</span><span class="macro">!</span>(<span class="string">&quot;/&quot;</span>, <span class="string">&quot;/&quot;</span>));
         <span class="macro">assert</span><span class="macro">!</span>(<span class="macro">is_inside</span><span class="macro">!</span>(<span class="string">&quot;.&quot;</span>, <span class="string">&quot;.&quot;</span>));
 
@@ -2301,7 +2301,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">normalized_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_normalized</span>() {
         <span class="comment">// Already clean</span>
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">normalize</span><span class="macro">!</span>(<span class="string">&quot;abc&quot;</span>), <span class="string">&quot;abc&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">normalize</span><span class="macro">!</span>(<span class="string">&quot;abc/def&quot;</span>), <span class="string">&quot;abc/def&quot;</span>);
@@ -2359,7 +2359,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">normalized_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_normalized</span>() {
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">normalize</span><span class="macro">!</span>(<span class="string">r&quot;c:&quot;</span>), <span class="string">r&quot;c:&quot;</span>); <span class="comment">// Go: &quot;c:.&quot;</span>
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">normalize</span><span class="macro">!</span>(<span class="string">r&quot;c:\&quot;</span>), <span class="string">r&quot;c:\&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">normalize</span><span class="macro">!</span>(<span class="string">r&quot;c:\abc&quot;</span>), <span class="string">r&quot;c:\abc&quot;</span>);
@@ -2405,7 +2405,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">lexical_join_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_lexical_join</span>() {
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">lexical_join</span><span class="macro">!</span>(<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>), <span class="string">&quot;a/b&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">lexical_join</span><span class="macro">!</span>(<span class="string">&quot;a&quot;</span>, <span class="string">&quot;&quot;</span>), <span class="string">&quot;a&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">lexical_join</span><span class="macro">!</span>(<span class="string">&quot;&quot;</span>, <span class="string">&quot;b&quot;</span>), <span class="string">&quot;b&quot;</span>);
@@ -2456,7 +2456,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">lexical_join_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_lexical_join</span>() {
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">lexical_join</span><span class="macro">!</span>(<span class="string">&quot;directory&quot;</span>, <span class="string">&quot;file&quot;</span>), <span class="string">r&quot;directory\file&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(
             <span class="macro">lexical_join</span><span class="macro">!</span>(<span class="string">r&quot;C:\Windows\&quot;</span>, <span class="string">&quot;System32&quot;</span>),
@@ -2533,7 +2533,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">relative_to_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_relative_to</span>() {
         <span class="macro">assert_eq_some</span><span class="macro">!</span>(<span class="macro">relative</span><span class="macro">!</span>(<span class="string">&quot;a/b&quot;</span>, <span class="string">&quot;a/b&quot;</span>), <span class="string">&quot;.&quot;</span>);
         <span class="macro">assert_eq_some</span><span class="macro">!</span>(<span class="macro">relative</span><span class="macro">!</span>(<span class="string">&quot;a/b/.&quot;</span>, <span class="string">&quot;a/b&quot;</span>), <span class="string">&quot;.&quot;</span>);
         <span class="macro">assert_eq_some</span><span class="macro">!</span>(<span class="macro">relative</span><span class="macro">!</span>(<span class="string">&quot;a/b&quot;</span>, <span class="string">&quot;a/b/.&quot;</span>), <span class="string">&quot;.&quot;</span>);
@@ -2579,7 +2579,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">relative_to_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_relative_to</span>() {
         <span class="macro">assert_eq_some</span><span class="macro">!</span>(<span class="macro">relative</span><span class="macro">!</span>(<span class="string">r&quot;C:a\b\c&quot;</span>, <span class="string">r&quot;C:a/b/d&quot;</span>), <span class="string">r&quot;..\d&quot;</span>);
         <span class="macro">assert_eq_some</span><span class="macro">!</span>(<span class="macro">relative</span><span class="macro">!</span>(<span class="string">r&quot;C:\Projects&quot;</span>, <span class="string">r&quot;c:\projects\src&quot;</span>), <span class="string">r&quot;src&quot;</span>);
         <span class="macro">assert_eq_some</span><span class="macro">!</span>(<span class="macro">relative</span><span class="macro">!</span>(<span class="string">r&quot;C:\Projects&quot;</span>, <span class="string">r&quot;c:\projects&quot;</span>), <span class="string">r&quot;.&quot;</span>);
@@ -2607,7 +2607,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">try_relative_to_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_try_relative_to</span>() {
         <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">env</span>;
 
         <span class="macro">assert_eq_ok</span><span class="macro">!</span>(<span class="macro">try_relative</span><span class="macro">!</span>(<span class="string">&quot;a/b&quot;</span>, <span class="string">&quot;a/b&quot;</span>), <span class="string">&quot;.&quot;</span>);
@@ -2666,7 +2666,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">try_relative_to_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_try_relative_to</span>() {
         <span class="macro">assert_eq_ok</span><span class="macro">!</span>(<span class="macro">try_relative</span><span class="macro">!</span>(<span class="string">r&quot;C:a\b\c&quot;</span>, <span class="string">r&quot;C:a/b/d&quot;</span>), <span class="string">r&quot;..\d&quot;</span>);
         <span class="macro">assert_eq_ok</span><span class="macro">!</span>(<span class="macro">try_relative</span><span class="macro">!</span>(<span class="string">r&quot;C:\Projects&quot;</span>, <span class="string">r&quot;c:\projects\src&quot;</span>), <span class="string">r&quot;src&quot;</span>);
         <span class="macro">assert_eq_ok</span><span class="macro">!</span>(<span class="macro">try_relative</span><span class="macro">!</span>(<span class="string">r&quot;C:\Projects&quot;</span>, <span class="string">r&quot;c:\projects&quot;</span>), <span class="string">r&quot;.&quot;</span>);
@@ -2697,7 +2697,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">rooted_join_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_rooted_join</span>() {
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">rooted_join</span><span class="macro">!</span>(<span class="string">&quot;/usr&quot;</span>, <span class="string">&quot;lib&quot;</span>), <span class="string">&quot;/usr/lib&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">rooted_join</span><span class="macro">!</span>(<span class="string">&quot;/usr&quot;</span>, <span class="string">&quot;/lib&quot;</span>), <span class="string">&quot;/usr/lib&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">rooted_join</span><span class="macro">!</span>(<span class="string">&quot;/usr&quot;</span>, <span class="string">&quot;lib/..&quot;</span>), <span class="string">&quot;/usr&quot;</span>);
@@ -2714,7 +2714,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">rooted_join_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_rooted_join</span>() {
         <span class="macro">assert_eq</span><span class="macro">!</span>(
             <span class="macro">rooted_join</span><span class="macro">!</span>(<span class="string">r&quot;C:\Windows&quot;</span>, <span class="string">&quot;System32&quot;</span>),
             <span class="string">r&quot;C:\Windows\System32&quot;</span>
@@ -2760,7 +2760,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">try_rooted_join_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_try_rooted_join</span>() {
         <span class="macro">assert_eq_ok</span><span class="macro">!</span>(<span class="macro">try_rooted_join</span><span class="macro">!</span>(<span class="string">&quot;/usr&quot;</span>, <span class="string">&quot;lib&quot;</span>), <span class="string">&quot;/usr/lib&quot;</span>);
         <span class="macro">assert_eq_ok</span><span class="macro">!</span>(<span class="macro">try_rooted_join</span><span class="macro">!</span>(<span class="string">&quot;/usr&quot;</span>, <span class="string">&quot;/lib&quot;</span>), <span class="string">&quot;/usr/lib&quot;</span>);
         <span class="macro">assert_eq_ok</span><span class="macro">!</span>(<span class="macro">try_rooted_join</span><span class="macro">!</span>(<span class="string">&quot;/usr&quot;</span>, <span class="string">&quot;lib/..&quot;</span>), <span class="string">&quot;/usr&quot;</span>);
@@ -2774,7 +2774,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">try_rooted_join_test</span>() {
+    <span class="kw">fn</span> <span class="ident">test_try_rooted_join</span>() {
         <span class="macro">assert_eq_ok</span><span class="macro">!</span>(
             <span class="macro">try_rooted_join</span><span class="macro">!</span>(<span class="string">r&quot;C:\Windows&quot;</span>, <span class="string">&quot;System32&quot;</span>),
             <span class="string">r&quot;C:\Windows\System32&quot;</span>
