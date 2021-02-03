@@ -1474,8 +1474,91 @@
 <span id="1471">1471</span>
 <span id="1472">1472</span>
 <span id="1473">1473</span>
+<span id="1474">1474</span>
+<span id="1475">1475</span>
+<span id="1476">1476</span>
+<span id="1477">1477</span>
+<span id="1478">1478</span>
+<span id="1479">1479</span>
+<span id="1480">1480</span>
+<span id="1481">1481</span>
+<span id="1482">1482</span>
+<span id="1483">1483</span>
+<span id="1484">1484</span>
+<span id="1485">1485</span>
+<span id="1486">1486</span>
+<span id="1487">1487</span>
+<span id="1488">1488</span>
+<span id="1489">1489</span>
+<span id="1490">1490</span>
+<span id="1491">1491</span>
+<span id="1492">1492</span>
+<span id="1493">1493</span>
+<span id="1494">1494</span>
+<span id="1495">1495</span>
+<span id="1496">1496</span>
+<span id="1497">1497</span>
+<span id="1498">1498</span>
+<span id="1499">1499</span>
+<span id="1500">1500</span>
+<span id="1501">1501</span>
+<span id="1502">1502</span>
+<span id="1503">1503</span>
+<span id="1504">1504</span>
+<span id="1505">1505</span>
+<span id="1506">1506</span>
+<span id="1507">1507</span>
+<span id="1508">1508</span>
+<span id="1509">1509</span>
+<span id="1510">1510</span>
+<span id="1511">1511</span>
+<span id="1512">1512</span>
+<span id="1513">1513</span>
+<span id="1514">1514</span>
+<span id="1515">1515</span>
+<span id="1516">1516</span>
+<span id="1517">1517</span>
+<span id="1518">1518</span>
+<span id="1519">1519</span>
+<span id="1520">1520</span>
+<span id="1521">1521</span>
+<span id="1522">1522</span>
+<span id="1523">1523</span>
+<span id="1524">1524</span>
+<span id="1525">1525</span>
+<span id="1526">1526</span>
+<span id="1527">1527</span>
+<span id="1528">1528</span>
+<span id="1529">1529</span>
+<span id="1530">1530</span>
+<span id="1531">1531</span>
+<span id="1532">1532</span>
+<span id="1533">1533</span>
+<span id="1534">1534</span>
+<span id="1535">1535</span>
+<span id="1536">1536</span>
+<span id="1537">1537</span>
+<span id="1538">1538</span>
+<span id="1539">1539</span>
+<span id="1540">1540</span>
+<span id="1541">1541</span>
+<span id="1542">1542</span>
+<span id="1543">1543</span>
+<span id="1544">1544</span>
+<span id="1545">1545</span>
+<span id="1546">1546</span>
+<span id="1547">1547</span>
+<span id="1548">1548</span>
+<span id="1549">1549</span>
+<span id="1550">1550</span>
+<span id="1551">1551</span>
+<span id="1552">1552</span>
+<span id="1553">1553</span>
+<span id="1554">1554</span>
+<span id="1555">1555</span>
+<span id="1556">1556</span>
+<span id="1557">1557</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="attribute">#![<span class="ident">feature</span>(<span class="ident">const_str_from_utf8_unchecked</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">osstring_ascii</span>)]</span>
 
 <span class="doccomment">//! Normalized Paths</span>
@@ -1507,7 +1590,14 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::{<span class="ident">Error</span>, <span class="ident">ErrorKind</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::{<span class="ident">is_separator</span>, <span class="ident">Component</span>, <span class="ident">Path</span>, <span class="ident">PathBuf</span>, <span class="ident">Prefix</span>, <span class="ident">PrefixComponent</span>, <span class="ident">MAIN_SEPARATOR</span>};
 
-<span class="kw">const</span> <span class="ident">MAIN_SEPARATOR_STR</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">std</span>::<span class="ident">str</span>::<span class="ident">from_utf8_unchecked</span>(<span class="kw-2">&amp;</span>[<span class="ident">MAIN_SEPARATOR</span> <span class="kw">as</span> <span class="ident">u8</span>]) };
+<span class="comment">// MAIN_SEPARATOR_STR is private in libstd, so getting a &amp;&#39;static str requires calling the unsafe</span>
+<span class="comment">// str::from_utf8_unchecked with the MAIN_SEPARATOR char. Since the separators are unlikely to</span>
+<span class="comment">// change anytime soon, let&#39;s just copy them here...</span>
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
+<span class="kw">const</span> <span class="ident">MAIN_SEPARATOR_STR</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;/&quot;</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
+<span class="kw">const</span> <span class="ident">MAIN_SEPARATOR_STR</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\\&quot;</span>;
 
 <span class="doccomment">/// Extension trait for [`PathBuf`].</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">NormPathBufExt</span> {
@@ -2038,9 +2128,7 @@
     }
 
     <span class="kw">fn</span> <span class="ident">lexical_join</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="ident">P</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PathBuf</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">p</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">to_path_buf</span>();
-        <span class="ident">p</span>.<span class="ident">lexical_push</span>(<span class="ident">path</span>);
-        <span class="ident">p</span>
+        <span class="ident">lexical_join</span>(<span class="self">self</span>, <span class="ident">path</span>.<span class="ident">as_ref</span>())
     }
 
     <span class="kw">fn</span> <span class="ident">relative_to</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">base</span>: <span class="ident">P</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
@@ -2202,6 +2290,85 @@
     }
 }
 
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
+<span class="kw">mod</span> <span class="ident">lexical_join</span> {
+    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">OsString</span>;
+    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">os</span>::<span class="ident">unix</span>::<span class="ident">prelude</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::{<span class="ident">is_separator</span> <span class="kw">as</span> <span class="ident">is_sep</span>, <span class="ident">Path</span>, <span class="ident">MAIN_SEPARATOR</span> <span class="kw">as</span> <span class="ident">MAIN_SEP</span>};
+
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAIN_SEPARATOR</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="ident">MAIN_SEP</span> <span class="kw">as</span> <span class="ident">u8</span>;
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_separator</span>(<span class="ident">b</span>: <span class="ident">u8</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="ident">is_sep</span>(<span class="ident">b</span> <span class="kw">as</span> <span class="ident">char</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_os_encoding</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="ident">base</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Path</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>]) {
+        <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="ident">base</span>.<span class="ident">as_os_str</span>().<span class="ident">as_bytes</span>().<span class="ident">to_vec</span>();
+        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">as_os_str</span>().<span class="ident">as_bytes</span>();
+        (<span class="ident">base</span>, <span class="ident">path</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_os_string</span>(<span class="ident">path</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">OsString</span> {
+        <span class="ident">OsString</span>::<span class="ident">from_vec</span>(<span class="ident">path</span>)
+    }
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
+<span class="kw">mod</span> <span class="ident">lexical_join</span> {
+    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::<span class="ident">TryFrom</span>;
+    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">OsString</span>;
+    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">os</span>::<span class="ident">windows</span>::<span class="ident">prelude</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::{<span class="ident">is_separator</span> <span class="kw">as</span> <span class="ident">is_sep</span>, <span class="ident">Path</span>, <span class="ident">MAIN_SEPARATOR</span> <span class="kw">as</span> <span class="ident">MAIN_SEP</span>};
+
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAIN_SEPARATOR</span>: <span class="ident">u16</span> <span class="op">=</span> <span class="ident">MAIN_SEP</span> <span class="kw">as</span> <span class="ident">u16</span>;
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_separator</span>(<span class="ident">w</span>: <span class="ident">u16</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">c</span>) <span class="op">=</span> <span class="ident">char</span>::<span class="ident">try_from</span>(<span class="ident">w</span> <span class="kw">as</span> <span class="ident">u32</span>) {
+            <span class="kw">return</span> <span class="ident">is_sep</span>(<span class="ident">c</span>);
+        }
+        <span class="bool-val">false</span>
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_os_encoding</span>(<span class="ident">base</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;</span>) {
+        <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="ident">base</span>.<span class="ident">as_os_str</span>().<span class="ident">encode_wide</span>().<span class="ident">collect</span>();
+        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">as_os_str</span>().<span class="ident">encode_wide</span>().<span class="ident">collect</span>();
+        (<span class="ident">base</span>, <span class="ident">path</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_os_string</span>(<span class="ident">path</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">OsString</span> {
+        <span class="ident">OsString</span>::<span class="ident">from_wide</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)
+    }
+}
+
+<span class="comment">// External crates are not supposed to know how paths are represented internally. For the sake of</span>
+<span class="comment">// not using unsafe, the operations that need raw access to the characters have to use u8 for Unix,</span>
+<span class="comment">// and u16 for Windows. If implemented inside libstd, all of them can just process WTF-8 bytes.</span>
+<span class="kw">fn</span> <span class="ident">lexical_join</span>(<span class="ident">base</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PathBuf</span> {
+    <span class="kw">let</span> <span class="ident">prefix</span> <span class="op">=</span> <span class="ident">get_prefix</span>(<span class="ident">base</span>);
+    <span class="kw">let</span> <span class="ident">prefix_is_disk</span> <span class="op">=</span> <span class="macro">matches</span><span class="macro">!</span>(<span class="ident">prefix</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">kind</span>()), <span class="prelude-val">Some</span>(<span class="ident">Prefix</span>::<span class="ident">Disk</span>(<span class="kw">_</span>)));
+    <span class="kw">let</span> <span class="ident">prefix_len</span> <span class="op">=</span> <span class="ident">prefix</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">as_os_str</span>().<span class="ident">len</span>());
+
+    <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">base</span>, <span class="ident">path</span>) <span class="op">=</span> <span class="ident">lexical_join</span>::<span class="ident">to_os_encoding</span>(<span class="ident">base</span>, <span class="ident">path</span>);
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">path</span>[..];
+
+    <span class="kw">while</span> <span class="op">!</span><span class="ident">path</span>.<span class="ident">is_empty</span>() <span class="op">&amp;&amp;</span> <span class="ident">lexical_join</span>::<span class="ident">is_separator</span>(<span class="ident">path</span>[<span class="number">0</span>]) {
+        <span class="ident">path</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">path</span>[<span class="number">1</span>..];
+    }
+
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">path</span>.<span class="ident">is_empty</span>() {
+        <span class="kw">if</span> <span class="op">!</span>(<span class="ident">base</span>.<span class="ident">is_empty</span>()
+            <span class="op">|</span><span class="op">|</span> <span class="ident">lexical_join</span>::<span class="ident">is_separator</span>(<span class="kw-2">*</span><span class="ident">base</span>.<span class="ident">last</span>().<span class="ident">unwrap</span>())
+            <span class="op">|</span><span class="op">|</span> (<span class="ident">prefix_is_disk</span> <span class="op">&amp;&amp;</span> <span class="ident">prefix_len</span> <span class="op">=</span><span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">base</span>.<span class="ident">len</span>())))
+        {
+            <span class="ident">base</span>.<span class="ident">push</span>(<span class="ident">lexical_join</span>::<span class="ident">MAIN_SEPARATOR</span>);
+        }
+
+        <span class="ident">base</span>.<span class="ident">extend</span>(<span class="ident">path</span>);
+    }
+
+    <span class="ident">PathBuf</span>::<span class="ident">from</span>(<span class="ident">lexical_join</span>::<span class="ident">to_os_string</span>(<span class="ident">base</span>))
+}
+
 <span class="comment">// TODO: Handle prefixes containing / (limited by the prefix parsing code, avoid comparing OsStr of</span>
 <span class="comment">// the full prefix).</span>
 <span class="kw">fn</span> <span class="ident">are_equal</span>(<span class="ident">a</span>: <span class="kw-2">&amp;</span><span class="ident">Component</span>, <span class="ident">b</span>: <span class="kw-2">&amp;</span><span class="ident">Component</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
@@ -2254,7 +2421,7 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">NormPathBufExt</span>, <span class="ident">NormPathExt</span>};
+    <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">NormPathExt</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 
     <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">assert_eq_ok</span> {
@@ -2394,6 +2561,7 @@
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">dir</span><span class="macro">!</span>(<span class="string">r&quot;\\host\share\a\b&quot;</span>), <span class="string">r&quot;\\host\share\a&quot;</span>);
     }
 
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
     <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">is_inside</span> {
         (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">a</span>:<span class="ident">literal</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">b</span>:<span class="ident">literal</span>) <span class="op">=</span><span class="op">&gt;</span> {
             <span class="ident">Path</span>::<span class="ident">new</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">a</span>).<span class="ident">is_inside</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">b</span>)
@@ -2543,7 +2711,7 @@
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">PathBuf</span>::<span class="ident">from</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">l</span>);
 
                 $(
-                    <span class="ident">p</span>.<span class="ident">lexical_push</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">a</span>);
+                    <span class="ident">p</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">lexical_join</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">a</span>);
                 )<span class="op">*</span>
 
                 <span class="ident">p</span>
