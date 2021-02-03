@@ -917,6 +917,7 @@ mod tests {
         assert_eq!(dir!(r"\\host\share\a\b"), r"\\host\share\a");
     }
 
+    #[cfg(unix)]
     macro_rules! is_inside {
         ($a:literal, $b:literal) => {
             Path::new($a).is_inside($b)
