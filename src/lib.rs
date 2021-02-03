@@ -1,4 +1,3 @@
-#![feature(const_str_from_utf8_unchecked)]
 #![feature(osstring_ascii)]
 
 //! Normalized Paths
@@ -30,7 +29,14 @@ use std::ffi::{OsStr, OsString};
 use std::io::{Error, ErrorKind, Result};
 use std::path::{is_separator, Component, Path, PathBuf, Prefix, PrefixComponent, MAIN_SEPARATOR};
 
-const MAIN_SEPARATOR_STR: &str = unsafe { std::str::from_utf8_unchecked(&[MAIN_SEPARATOR as u8]) };
+// MAIN_SEPARATOR_STR is private in libstd, so getting a &'static str requires calling the unsafe
+// str::from_utf8_unchecked with the MAIN_SEPARATOR char. Since the separators are unlikely to
+// change anytime soon, let's just copy them here...
+
+#[cfg(unix)]
+const MAIN_SEPARATOR_STR: &str = "/";
+#[cfg(windows)]
+const MAIN_SEPARATOR_STR: &str = "\\";
 
 /// Extension trait for [`PathBuf`].
 pub trait NormPathBufExt {
