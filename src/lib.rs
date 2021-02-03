@@ -567,9 +567,7 @@ impl NormPathExt for Path {
     }
 
     fn lexical_join<P: AsRef<Path>>(&self, path: P) -> PathBuf {
-        let mut p = self.to_path_buf();
-        p.lexical_push(path);
-        p
+        lexical_join(self, path.as_ref())
     }
 
     fn relative_to<P: AsRef<Path>>(&self, base: P) -> Option<PathBuf> {
@@ -731,6 +729,85 @@ impl NormPathExt for Path {
     }
 }
 
+#[cfg(unix)]
+mod lexical_join {
+    use std::ffi::OsString;
+    use std::os::unix::prelude::*;
+    use std::path::{is_separator as is_sep, Path, MAIN_SEPARATOR as MAIN_SEP};
+
+    pub const MAIN_SEPARATOR: u8 = MAIN_SEP as u8;
+
+    pub fn is_separator(b: u8) -> bool {
+        is_sep(b as char)
+    }
+
+    pub fn to_os_encoding<'a>(base: &Path, path: &'a Path) -> (Vec<u8>, &'a [u8]) {
+        let base = base.as_os_str().as_bytes().to_vec();
+        let path = path.as_os_str().as_bytes();
+        (base, path)
+    }
+
+    pub fn to_os_string(path: Vec<u8>) -> OsString {
+        OsString::from_vec(path)
+    }
+}
+
+#[cfg(windows)]
+mod lexical_join {
+    use std::convert::TryFrom;
+    use std::ffi::OsString;
+    use std::os::windows::prelude::*;
+    use std::path::{is_separator as is_sep, Path, MAIN_SEPARATOR as MAIN_SEP};
+
+    pub const MAIN_SEPARATOR: u16 = MAIN_SEP as u16;
+
+    pub fn is_separator(w: u16) -> bool {
+        if let Ok(c) = char::try_from(w as u32) {
+            return is_sep(c);
+        }
+        false
+    }
+
+    pub fn to_os_encoding(base: &Path, path: &Path) -> (Vec<u16>, Vec<u16>) {
+        let base = base.as_os_str().encode_wide().collect();
+        let path = path.as_os_str().encode_wide().collect();
+        (base, path)
+    }
+
+    pub fn to_os_string(path: Vec<u16>) -> OsString {
+        OsString::from_wide(&path)
+    }
+}
+
+// External crates are not supposed to know how paths are represented internally. For the sake of
+// not using unsafe, the operations that need raw access to the characters have to use u8 for Unix,
+// and u16 for Windows. If implemented inside libstd, all of them can just process WTF-8 bytes.
+fn lexical_join(base: &Path, path: &Path) -> PathBuf {
+    let prefix = get_prefix(base);
+    let prefix_is_disk = matches!(prefix.map(|p| p.kind()), Some(Prefix::Disk(_)));
+    let prefix_len = prefix.map(|p| p.as_os_str().len());
+
+    let (mut base, path) = lexical_join::to_os_encoding(base, path);
+    let mut path = &path[..];
+
+    while !path.is_empty() && lexical_join::is_separator(path[0]) {
+        path = &path[1..];
+    }
+
+    if !path.is_empty() {
+        if !(base.is_empty()
+            || lexical_join::is_separator(*base.last().unwrap())
+            || (prefix_is_disk && prefix_len == Some(base.len())))
+        {
+            base.push(lexical_join::MAIN_SEPARATOR);
+        }
+
+        base.extend(path);
+    }
+
+    PathBuf::from(lexical_join::to_os_string(base))
+}
+
 // TODO: Handle prefixes containing / (limited by the prefix parsing code, avoid comparing OsStr of
 // the full prefix).
 fn are_equal(a: &Component, b: &Component) -> bool {
@@ -783,7 +860,7 @@ fn normalize_rooted(path: &Path) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::{NormPathBufExt, NormPathExt};
+    use super::NormPathExt;
     use std::path::{Path, PathBuf};
 
     macro_rules! assert_eq_ok {
@@ -1073,7 +1150,7 @@ mod tests {
                 let mut p = PathBuf::from($l);
 
                 $(
-                    p.lexical_push($a);
+                    p = p.lexical_join($a);
                 )*
 
                 p
