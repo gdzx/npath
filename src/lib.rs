@@ -609,6 +609,7 @@ impl NormPathExt for Path {
 
 #[cfg(unix)]
 mod lexical_join {
+    use std::borrow::Cow;
     use std::ffi::OsString;
     use std::os::unix::prelude::*;
     use std::path::{is_separator as is_sep, Path, MAIN_SEPARATOR as MAIN_SEP};
@@ -619,19 +620,18 @@ mod lexical_join {
         is_sep(b as char)
     }
 
-    pub fn to_os_encoding<'a>(base: &Path, path: &'a Path) -> (Vec<u8>, &'a [u8]) {
-        let base = base.as_os_str().as_bytes().to_vec();
-        let path = path.as_os_str().as_bytes();
-        (base, path)
+    pub fn to_os_encoding(path: &Path) -> Cow<[u8]> {
+        Cow::from(path.as_os_str().as_bytes())
     }
 
-    pub fn to_os_string(path: Vec<u8>) -> OsString {
-        OsString::from_vec(path)
+    pub fn to_os_string<V: Into<Vec<u8>>>(path: V) -> OsString {
+        OsString::from_vec(path.into())
     }
 }
 
 #[cfg(windows)]
 mod lexical_join {
+    use std::borrow::Cow;
     use std::convert::TryFrom;
     use std::ffi::OsString;
     use std::os::windows::prelude::*;
@@ -640,20 +640,15 @@ mod lexical_join {
     pub const MAIN_SEPARATOR: u16 = MAIN_SEP as u16;
 
     pub fn is_separator(w: u16) -> bool {
-        if let Ok(c) = char::try_from(w as u32) {
-            return is_sep(c);
-        }
-        false
+        char::try_from(w as u32).map(is_sep).unwrap_or(false)
     }
 
-    pub fn to_os_encoding(base: &Path, path: &Path) -> (Vec<u16>, Vec<u16>) {
-        let base = base.as_os_str().encode_wide().collect();
-        let path = path.as_os_str().encode_wide().collect();
-        (base, path)
+    pub fn to_os_encoding(path: &Path) -> Cow<[u16]> {
+        Cow::from(path.as_os_str().encode_wide().collect::<Vec<_>>())
     }
 
-    pub fn to_os_string(path: Vec<u16>) -> OsString {
-        OsString::from_wide(&path)
+    pub fn to_os_string<V: AsRef<[u16]>>(path: V) -> OsString {
+        OsString::from_wide(path.as_ref())
     }
 }
 
@@ -665,7 +660,9 @@ fn lexical_join(base: &Path, path: &Path) -> PathBuf {
     let prefix_is_disk = matches!(prefix.map(|p| p.kind()), Some(Prefix::Disk(_)));
     let prefix_len = prefix.map(|p| p.as_os_str().len());
 
-    let (mut base, path) = lexical_join::to_os_encoding(base, path);
+    let mut base = lexical_join::to_os_encoding(&base).into_owned();
+
+    let path = lexical_join::to_os_encoding(path);
     let mut path = &path[..];
 
     while !path.is_empty() && lexical_join::is_separator(path[0]) {
