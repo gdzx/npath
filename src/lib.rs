@@ -847,13 +847,15 @@ mod tests {
         assert_eq!(dir!("/"), "/");
         assert_eq!(dir!("////"), "/");
         assert_eq!(dir!("/foo"), "/");
-        assert_eq!(dir!("x/"), "."); // Go's `filepath.Dir` returns "x"
-        assert_eq!(dir!("x///"), "."); // Go's `filepath.Dir` returns "x"
+        assert_eq!(dir!("x/"), "."); // Go: "x"
+        assert_eq!(dir!("x///"), "."); // Go: "x"
         assert_eq!(dir!("abc"), ".");
         assert_eq!(dir!("abc/def"), "abc");
         assert_eq!(dir!("a/b/.x"), "a/b");
         assert_eq!(dir!("a/b/c."), "a/b");
         assert_eq!(dir!("a/b/c.x"), "a/b");
+
+        assert_eq!(dir!("x/."), "."); // POSIX: "x"
 
         // Unnormalized
         assert_eq!(dir!("/../x"), "/..");
