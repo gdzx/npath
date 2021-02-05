@@ -123,18 +123,6 @@ fn test_rooted_join() {
 }
 
 #[test]
-fn test_rooted_join2() {
-    for a in AllStrings::new(LENGTH / 2, CHARS) {
-        for b in AllStrings::new(LENGTH / 2, CHARS) {
-            assert_eq!(
-                NormPathExt::rooted_join2(Path::new(&a), &b),
-                NormPathPrevExt::rooted_join2(Path::new(&a), &b)
-            );
-        }
-    }
-}
-
-#[test]
 fn test_try_rooted_join() {
     for a in AllStrings::new(LENGTH / 2, CHARS) {
         for b in AllStrings::new(LENGTH / 2, CHARS) {

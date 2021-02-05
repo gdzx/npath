@@ -378,9 +378,6 @@ pub trait NormPathExt {
     /// ```
     fn rooted_join<P: AsRef<Path>>(&self, path: P) -> PathBuf;
 
-    #[doc(hidden)]
-    fn rooted_join2<P: AsRef<Path>>(&self, path: P) -> PathBuf;
-
     /// Returns `path` restricted to `self`.
     ///
     /// `self` and `path` are converted to absolute paths with [`NormPathExt::absolute`], they are
@@ -599,21 +596,6 @@ impl NormPathExt for Path {
 
     fn rooted_join<P: AsRef<Path>>(&self, path: P) -> PathBuf {
         self.lexical_join(normalize_rooted(path.as_ref()))
-    }
-
-    // This method is purely for demonstration purposes to show how easy it is to implement it from
-    // normalized and lexical_join. That could also serve as integration tests.
-    fn rooted_join2<P: AsRef<Path>>(&self, path: P) -> PathBuf {
-        let path = path.as_ref();
-
-        // Ensure path is absolute so normalization can eliminate all ".." components
-        let path = if path.is_relative() {
-            Path::new("/").join(path).normalized()
-        } else {
-            path.normalized()
-        };
-
-        self.lexical_join(path)
     }
 
     // <https://github.com/django/django/blob/master/django/utils/_os.py>
