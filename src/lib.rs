@@ -27,7 +27,7 @@
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::io::{Error, ErrorKind, Result};
-use std::path::{is_separator, Component, Path, PathBuf, Prefix, PrefixComponent, MAIN_SEPARATOR};
+use std::path::{Component, Path, PathBuf, Prefix, PrefixComponent};
 
 // MAIN_SEPARATOR_STR is private in libstd, so getting a &'static str requires calling the unsafe
 // str::from_utf8_unchecked with the MAIN_SEPARATOR char. Since the separators are unlikely to
@@ -48,29 +48,7 @@ pub trait NormPathBufExt {
 
 impl NormPathBufExt for PathBuf {
     fn lexical_push<P: AsRef<Path>>(&mut self, path: P) {
-        let prefix = get_prefix(self.as_path());
-        let prefix_is_disk = matches!(prefix.map(|p| p.kind()), Some(Prefix::Disk(_)));
-        let prefix_len = prefix.map(|p| p.as_os_str().len());
-
-        let base = unsafe { &mut *(self as *mut PathBuf as *mut Vec<u8>) };
-        let mut path = unsafe { &*(path.as_ref() as *const Path as *const [u8]) };
-
-        while !path.is_empty() && is_separator(path[0] as char) {
-            path = &path[1..];
-        }
-
-        if path.is_empty() {
-            return;
-        }
-
-        if !(base.is_empty()
-            || is_separator(*base.last().unwrap() as char)
-            || (prefix_is_disk && Some(base.len()) == prefix_len))
-        {
-            base.push(MAIN_SEPARATOR as u8);
-        }
-
-        base.extend(path);
+        *self = self.lexical_join(path)
     }
 }
 
