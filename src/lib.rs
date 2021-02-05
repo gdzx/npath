@@ -25,18 +25,9 @@
 //! TODO: limitations (letter case, prefixes)
 
 use std::env;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::io::{Error, ErrorKind, Result};
 use std::path::{Component, Path, PathBuf, Prefix, PrefixComponent};
-
-// MAIN_SEPARATOR_STR is private in libstd, so getting a &'static str requires calling the unsafe
-// str::from_utf8_unchecked with the MAIN_SEPARATOR char. Since the separators are unlikely to
-// change anytime soon, let's just copy them here...
-
-#[cfg(unix)]
-const MAIN_SEPARATOR_STR: &str = "/";
-#[cfg(windows)]
-const MAIN_SEPARATOR_STR: &str = "\\";
 
 /// Extension trait for [`PathBuf`].
 pub trait NormPathBufExt {
@@ -421,13 +412,10 @@ impl NormPathExt for Path {
         self.components()
             .next_back()
             .and_then(|c| match c {
-                Component::Normal(p) => Some(Path::new(p)),
-                Component::RootDir => Some(Path::new(MAIN_SEPARATOR_STR)),
-                Component::CurDir => Some(Path::new(".")),
-                Component::ParentDir => Some(Path::new("..")),
-                _ => None,
+                Component::Prefix(_) => None,
+                _ => Some(Path::new(c.as_os_str())),
             })
-            .unwrap_or_else(|| Path::new("."))
+            .unwrap_or_else(|| Path::new(Component::CurDir.as_os_str()))
     }
 
     fn dir(&self) -> &Path {
@@ -445,7 +433,7 @@ impl NormPathExt for Path {
                     }
                 }
             })
-            .unwrap_or_else(|| Path::new("."))
+            .unwrap_or_else(|| Path::new(Component::CurDir.as_os_str()))
     }
 
     fn is_inside<P: AsRef<Path>>(&self, base: P) -> bool {
@@ -540,7 +528,7 @@ impl NormPathExt for Path {
                     base_head = base_components.next();
                     path_head = path_components.next();
                 }
-                (None, None) => return Some(PathBuf::from(".")),
+                (None, None) => return Some(PathBuf::from(Component::CurDir.as_os_str())),
                 _ => {
                     let mut p = PathBuf::new();
 
@@ -549,11 +537,11 @@ impl NormPathExt for Path {
                     }
 
                     if base_head.is_some() && base_head != Some(Component::CurDir) {
-                        p.push("..");
+                        p.push(Component::ParentDir.as_os_str());
                     }
 
                     for _ in base_components {
-                        p.push("..");
+                        p.push(Component::ParentDir.as_os_str());
                     }
 
                     if let Some(c) = path_head {
@@ -608,8 +596,7 @@ impl NormPathExt for Path {
         // - It starts with `base` + "/"
         // - It is equal to `base`
         // - It is the root directory "/"
-        if !path.starts_with(join_os_str(&base, "/")) && path != base && base.file_name().is_some()
-        {
+        if !path.starts_with(&base) && path != base && base.file_name().is_some() {
             return Err(Error::new(
                 ErrorKind::Other,
                 "Path outside of base directory",
@@ -703,9 +690,10 @@ fn lexical_join(base: &Path, path: &Path) -> PathBuf {
 // the full prefix).
 fn are_equal(a: &Component, b: &Component) -> bool {
     if cfg!(windows) {
-        return a.as_os_str().to_ascii_lowercase() == b.as_os_str().to_ascii_lowercase();
+        a.as_os_str().eq_ignore_ascii_case(b.as_os_str())
+    } else {
+        a == b
     }
-    a == b
 }
 
 fn get_prefix(path: &Path) -> Option<PrefixComponent> {
@@ -716,12 +704,6 @@ fn get_prefix(path: &Path) -> Option<PrefixComponent> {
             None
         }
     })
-}
-
-fn join_os_str<S1: AsRef<OsStr>, S2: AsRef<OsStr>>(a: S1, b: S2) -> OsString {
-    let mut res = a.as_ref().to_os_string();
-    res.push(b);
-    res
 }
 
 // Eliminates all ".." components
