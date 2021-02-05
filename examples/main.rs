@@ -59,14 +59,6 @@ fn relative_to(s: &str) -> Answer {
     }
 }
 
-fn try_relative_to(s: &str) -> Answer {
-    let v: Vec<_> = s.splitn(2, " ").collect();
-    match Path::new(v[1]).try_relative_to(v[0]) {
-        Ok(p) => p.into(),
-        Err(_) => "Error".into(),
-    }
-}
-
 fn main() {
     let args = env::args();
 
@@ -85,7 +77,6 @@ fn main() {
         "lexical_join" => lexical_join,
         "normalize" => normalize,
         "relative_to" => relative_to,
-        "try_relative_to" => try_relative_to,
         _ => {
             eprintln!("Unsupported");
             std::process::exit(1);

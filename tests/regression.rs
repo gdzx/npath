@@ -101,18 +101,6 @@ fn test_relative_to() {
 }
 
 #[test]
-fn test_try_relative_to() {
-    for a in AllStrings::new(LENGTH / 2, CHARS) {
-        for b in AllStrings::new(LENGTH / 2, CHARS) {
-            assert_eq_result!(
-                NormPathExt::try_relative_to(Path::new(&a), &b),
-                NormPathPrevExt::try_relative_to(Path::new(&a), &b)
-            );
-        }
-    }
-}
-
-#[test]
 fn test_resolved() {
     for a in AllStrings::new(LENGTH, CHARS) {
         assert_eq_result!(

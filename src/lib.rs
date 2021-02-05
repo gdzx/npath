@@ -249,10 +249,6 @@ pub trait NormPathExt {
     /// if any, satisfies: `base.join(path) == self`. Both paths are normalized before being
     /// compared, and the returned path is also normalized.
     ///
-    /// # Differences with [`NormPathExt::try_relative_to`]
-    ///
-    /// Only lexical operations are performed.
-    ///
     /// # Limitations
     ///
     /// The method returns `None` when it cannot determine the intermediate path components to
@@ -292,32 +288,6 @@ pub trait NormPathExt {
     /// assert_eq!(Path::new(".").relative_to(".."), None);
     /// ```
     fn relative_to<P: AsRef<Path>>(&self, base: P) -> Option<PathBuf>;
-
-    /// Returns the relative path from `base` to `self`.
-    ///
-    /// The path is such that: `base.join(path) == self`.
-    ///
-    /// # Differences with [`NormPathExt::relative_to`]
-    ///
-    /// A system call to determine the current working directory is required if one of `self` or
-    /// `base` is relative.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::env;
-    /// use std::path::{Path, PathBuf};
-    /// use npath::NormPathExt;
-    ///
-    /// assert_eq!(Path::new("/usr/lib").try_relative_to("/usr").unwrap(), PathBuf::from("lib"));
-    /// assert_eq!(Path::new("usr/bin").try_relative_to("var").unwrap(),   PathBuf::from("../usr/bin"));
-    ///
-    /// if let Ok(cwd) = env::current_dir() {
-    ///     assert_eq!(Path::new("foo").try_relative_to("..").unwrap(), cwd.base().join("foo"));
-    /// }
-    /// ```
-    #[doc(hidden)]
-    fn try_relative_to<P: AsRef<Path>>(&self, base: P) -> Result<PathBuf>;
 
     /// Returns the normalized equivalent of `self`, with intermediate symlinks resolved.
     ///
@@ -595,45 +565,6 @@ impl NormPathExt for Path {
                     }
 
                     return Some(p);
-                }
-            }
-        }
-    }
-
-    fn try_relative_to<P: AsRef<Path>>(&self, base: P) -> Result<PathBuf> {
-        let base = base.as_ref().absolute()?.normalized();
-        let path = self.absolute()?.normalized();
-
-        let mut base_components = base.components();
-        let mut path_components = path.components();
-
-        let mut base_head = base_components.next();
-        let mut path_head = path_components.next();
-
-        loop {
-            match (base_head, path_head) {
-                (Some(x), Some(y)) if are_equal(&x, &y) => {
-                    base_head = base_components.next();
-                    path_head = path_components.next();
-                }
-                (None, None) => return Ok(PathBuf::from(".")),
-                _ => {
-                    let mut p = PathBuf::new();
-
-                    if base_head.is_some() {
-                        p.push("..");
-                    }
-
-                    for _ in base_components {
-                        p.push("..");
-                    }
-
-                    if let Some(c) = path_head {
-                        p.push(c);
-                        p.extend(path_components);
-                    }
-
-                    return Ok(p);
                 }
             }
         }
@@ -1328,90 +1259,6 @@ mod tests {
         // There is no relative path
         assert!(relative!(r"C:\", r"D:\").is_none());
         assert!(relative!(r"C:", r"D:").is_none());
-    }
-
-    macro_rules! try_relative {
-        ($a:literal, $b:literal) => {
-            Path::new($b)
-                .try_relative_to($a)
-                .map(|p| p.into_os_string())
-        };
-    }
-
-    #[test]
-    #[cfg(unix)]
-    fn test_try_relative_to() {
-        use std::env;
-
-        assert_eq_ok!(try_relative!("a/b", "a/b"), ".");
-        assert_eq_ok!(try_relative!("a/b/.", "a/b"), ".");
-        assert_eq_ok!(try_relative!("a/b", "a/b/."), ".");
-        assert_eq_ok!(try_relative!("./a/b", "a/b"), ".");
-        assert_eq_ok!(try_relative!("a/b", "./a/b"), ".");
-        assert_eq_ok!(try_relative!("ab/cd", "ab/cde"), "../cde");
-        assert_eq_ok!(try_relative!("ab/cd", "ab/c"), "../c");
-        assert_eq_ok!(try_relative!("a/b", "a/b/c/d"), "c/d");
-        assert_eq_ok!(try_relative!("a/b", "a/b/../c"), "../c");
-        assert_eq_ok!(try_relative!("a/b/../c", "a/b"), "../b");
-        assert_eq_ok!(try_relative!("a/b/c", "a/c/d"), "../../c/d");
-        assert_eq_ok!(try_relative!("a/b", "c/d"), "../../c/d");
-        assert_eq_ok!(try_relative!("a/b/c/d", "a/b"), "../..");
-        assert_eq_ok!(try_relative!("a/b/c/d", "a/b/"), "../..");
-        assert_eq_ok!(try_relative!("a/b/c/d/", "a/b"), "../..");
-        assert_eq_ok!(try_relative!("a/b/c/d/", "a/b/"), "../..");
-        assert_eq_ok!(try_relative!("../../a/b", "../../a/b/c/d"), "c/d");
-        assert_eq_ok!(try_relative!("/a/b", "/a/b"), ".");
-        assert_eq_ok!(try_relative!("/a/b/.", "/a/b"), ".");
-        assert_eq_ok!(try_relative!("/a/b", "/a/b/."), ".");
-        assert_eq_ok!(try_relative!("/ab/cd", "/ab/cde"), "../cde");
-        assert_eq_ok!(try_relative!("/ab/cd", "/ab/c"), "../c");
-        assert_eq_ok!(try_relative!("/a/b", "/a/b/c/d"), "c/d");
-        assert_eq_ok!(try_relative!("/a/b", "/a/b/../c"), "../c");
-        assert_eq_ok!(try_relative!("/a/b/../c", "/a/b"), "../b");
-        assert_eq_ok!(try_relative!("/a/b/c", "/a/c/d"), "../../c/d");
-        assert_eq_ok!(try_relative!("/a/b", "/c/d"), "../../c/d");
-        assert_eq_ok!(try_relative!("/a/b/c/d", "/a/b"), "../..");
-        assert_eq_ok!(try_relative!("/a/b/c/d", "/a/b/"), "../..");
-        assert_eq_ok!(try_relative!("/a/b/c/d/", "/a/b"), "../..");
-        assert_eq_ok!(try_relative!("/a/b/c/d/", "/a/b/"), "../..");
-        assert_eq_ok!(try_relative!("/../../a/b", "/../../a/b/c/d"), "c/d");
-        assert_eq_ok!(try_relative!(".", "a/b"), "a/b");
-        assert_eq_ok!(try_relative!(".", ".."), "..");
-
-        // The result depends on the current directory
-        if let Ok(c) = env::current_dir() {
-            let mut root = std::path::PathBuf::new();
-
-            for _ in 0..c.components().count() {
-                root.push("..");
-            }
-
-            assert_eq_ok!(try_relative!("..", "."), c.base().to_path_buf());
-            assert_eq_ok!(try_relative!("..", "a"), c.base().join("a"));
-            assert_eq_ok!(try_relative!("../..", ".."), c.dir().base().to_path_buf());
-            assert_eq_ok!(try_relative!("a", "/a"), root.join("a"));
-            assert_eq_ok!(
-                try_relative!("/a", "a"),
-                Path::new("..").lexical_join(c).join("a")
-            );
-        }
-    }
-
-    #[test]
-    #[cfg(windows)]
-    fn test_try_relative_to() {
-        assert_eq_ok!(try_relative!(r"C:a\b\c", r"C:a/b/d"), r"..\d");
-        assert_eq_ok!(try_relative!(r"C:\Projects", r"c:\projects\src"), r"src");
-        assert_eq_ok!(try_relative!(r"C:\Projects", r"c:\projects"), r".");
-        assert_eq_ok!(try_relative!(r"C:\Projects\a\..", r"c:\projects"), r".");
-
-        // TODO: there are some cases where there is no relative paths. Need to change the return
-        // type of try_relative_to.
-        //let cases = &[(r"C:\", r"D:\"), (r"C:", r"D:")];
-
-        //for c in cases {
-        //    assert!(Path::new(c.1).try_relative_to(c.0).is_none());
-        //}
     }
 
     macro_rules! rooted_join {
