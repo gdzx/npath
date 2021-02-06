@@ -806,51 +806,6 @@ impl NormPathExt for Path {
     }
 }
 
-#[cfg(unix)]
-mod lexical_join {
-    use std::borrow::Cow;
-    use std::ffi::OsString;
-    use std::os::unix::prelude::*;
-    use std::path::{is_separator as is_sep, Path, MAIN_SEPARATOR as MAIN_SEP};
-
-    pub const MAIN_SEPARATOR: u8 = MAIN_SEP as u8;
-
-    pub fn is_separator(b: u8) -> bool {
-        is_sep(b as char)
-    }
-
-    pub fn to_os_encoding(path: &Path) -> Cow<[u8]> {
-        Cow::from(path.as_os_str().as_bytes())
-    }
-
-    pub fn to_os_string<V: Into<Vec<u8>>>(path: V) -> OsString {
-        OsString::from_vec(path.into())
-    }
-}
-
-#[cfg(windows)]
-mod lexical_join {
-    use std::borrow::Cow;
-    use std::convert::TryFrom;
-    use std::ffi::OsString;
-    use std::os::windows::prelude::*;
-    use std::path::{is_separator as is_sep, Path, MAIN_SEPARATOR as MAIN_SEP};
-
-    pub const MAIN_SEPARATOR: u16 = MAIN_SEP as u16;
-
-    pub fn is_separator(w: u16) -> bool {
-        char::try_from(w as u32).map(is_sep).unwrap_or(false)
-    }
-
-    pub fn to_os_encoding(path: &Path) -> Cow<[u16]> {
-        Cow::from(path.as_os_str().encode_wide().collect::<Vec<_>>())
-    }
-
-    pub fn to_os_string<V: AsRef<[u16]>>(path: V) -> OsString {
-        OsString::from_wide(path.as_ref())
-    }
-}
-
 // External crates are not supposed to know how paths are represented internally. For the sake of
 // not using unsafe, the operations that need raw access to the characters have to use u8 for Unix,
 // and u16 for Windows. If implemented inside libstd, all of them can just process WTF-8 bytes.
@@ -859,27 +814,27 @@ fn lexical_join(base: &Path, path: &Path) -> PathBuf {
     let prefix_is_disk = matches!(prefix.map(|p| p.kind()), Some(Prefix::Disk(_)));
     let prefix_len = prefix.map(|p| p.as_os_str().len());
 
-    let mut base = lexical_join::to_os_encoding(&base).into_owned();
+    let mut base = sys::to_os_encoding(&base).into_owned();
 
-    let path = lexical_join::to_os_encoding(path);
+    let path = sys::to_os_encoding(path);
     let mut path = &path[..];
 
-    while !path.is_empty() && lexical_join::is_separator(path[0]) {
+    while !path.is_empty() && sys::is_separator(path[0]) {
         path = &path[1..];
     }
 
     if !path.is_empty() {
         if !(base.is_empty()
-            || lexical_join::is_separator(*base.last().unwrap())
+            || sys::is_separator(*base.last().unwrap())
             || (prefix_is_disk && prefix_len == Some(base.len())))
         {
-            base.push(lexical_join::MAIN_SEPARATOR);
+            base.push(sys::MAIN_SEPARATOR);
         }
 
         base.extend(path);
     }
 
-    PathBuf::from(lexical_join::to_os_string(base))
+    PathBuf::from(sys::to_os_string(base))
 }
 
 // TODO: Handle prefixes containing / (limited by the prefix parsing code, avoid comparing OsStr of
@@ -925,6 +880,51 @@ fn normalize_rooted(path: &Path) -> PathBuf {
     }
 
     path
+}
+
+#[cfg(unix)]
+mod sys {
+    use std::borrow::Cow;
+    use std::ffi::OsString;
+    use std::os::unix::prelude::*;
+    use std::path::{is_separator as is_sep, Path, MAIN_SEPARATOR as MAIN_SEP};
+
+    pub const MAIN_SEPARATOR: u8 = MAIN_SEP as u8;
+
+    pub fn to_os_encoding(path: &Path) -> Cow<[u8]> {
+        Cow::from(path.as_os_str().as_bytes())
+    }
+
+    pub fn to_os_string<V: Into<Vec<u8>>>(path: V) -> OsString {
+        OsString::from_vec(path.into())
+    }
+
+    pub fn is_separator(b: u8) -> bool {
+        is_sep(b as char)
+    }
+}
+
+#[cfg(windows)]
+mod sys {
+    use std::borrow::Cow;
+    use std::convert::TryFrom;
+    use std::ffi::OsString;
+    use std::os::windows::prelude::*;
+    use std::path::{is_separator as is_sep, Path, MAIN_SEPARATOR as MAIN_SEP};
+
+    pub const MAIN_SEPARATOR: u16 = MAIN_SEP as u16;
+
+    pub fn to_os_encoding(path: &Path) -> Cow<[u16]> {
+        Cow::from(path.as_os_str().encode_wide().collect::<Vec<_>>())
+    }
+
+    pub fn to_os_string<V: AsRef<[u16]>>(path: V) -> OsString {
+        OsString::from_wide(path.as_ref())
+    }
+
+    pub fn is_separator(w: u16) -> bool {
+        char::try_from(w as u32).map(is_sep).unwrap_or(false)
+    }
 }
 
 #[cfg(test)]
