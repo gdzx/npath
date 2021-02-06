@@ -34,22 +34,22 @@
 //! ## Joining paths
 //!
 //! One of the most basic operation is joining two paths. Trying to get
-//! `C:\Users\user\Documents\C:\foo` using [`Path::join`] can yield an absolute path:
+//! `C:\Users\User\Documents\C:\foo` using [`Path::join`] can yield an entirely different path:
 //!
 //! ```
 //! use std::path::Path;
 //!
 //! # if cfg!(windows) {
 //! assert_eq!(
-//!     Path::new(r"C:\Users\user\Documents").join(r"C:\foo"),
+//!     Path::new(r"C:\Users\User\Documents").join(r"C:\foo"),
 //!     Path::new(r"C:\foo"),
 //! );
 //! # }
 //! ```
 //!
 //! Although paths are represented by strings, [`Path::join`] is a high-level method that processes
-//! its second argument to determine if it is absolute. The fundamental operation of appending a
-//! path to another by string concatenation is called a lexical join.
+//! its second argument to determine if it is absolute. On the contrary, the fundamental operation
+//! of appending a path to another by string concatenation is called a *lexical join*.
 //!
 //! [`NormPathExt::lexical_join`] joins two paths with an operation similar to string
 //! concatenation, only adding a path separator in-between if needed. [`Path::join`] is a
@@ -70,8 +70,38 @@
 //!
 //! ## Normalization
 //!
-//! Web servers are exposed to path traversal vulnerabilities that allow an attacker to access file
-//! outside of some base directory. [`Path::join`] with the base directory `/srv` and a
+//! If you want to check whether two paths are identical, you need to transform them into a form
+//! that allows comparison. Rust provides [`std::fs::canonicalize`], which returns the true
+//! canonical path on the filesystem:
+//!
+//! ```no_run
+//! use std::path::Path;
+//!
+//! # fn main() -> std::io::Result<()> {
+//! assert_eq!(
+//!     Path::new("/srv").join("file.txt").canonicalize()?,
+//!     Path::new("/srv").join("bar//../file.txt").canonicalize()?,
+//! );
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! [`Path::canonicalize`] requires a concrete path (that refers to an existing file or directory
+//! on the filesystem) or it will return an error. [`NormPathExt::normalized`] eliminates the
+//! intermediate components `.`, `..`, or duplicate `/` through pure lexical processing. It is the
+//! building block for comparing paths, ensuring a path is restricted to some base path, or for
+//! finding the relative path between two paths. It yields the shortest lexically equivalent path:
+//! it is *normalized*.
+//!
+//! [`NormPathExt::resolved`] uses both approaches: the longest prefix whose individual components
+//! exist is canonicalized, the remaining path is normalized, and adjoined to it. The purpose is to
+//! circumvent the limitations of normalization, while still being able to apply it to paths that
+//! do not exist.
+//!
+//! ## Restricting paths
+//!
+//! Web servers are exposed to path traversal vulnerabilities that allow an attacker to access
+//! files outside of some base directory. [`Path::join`] with the base directory `/srv` and a
 //! user-supplied path can yield a path outside of `/srv`:
 //!
 //! ```
@@ -83,38 +113,6 @@
 //! );
 //! ```
 //!
-//! Rust already provides [`std::fs::canonicalize`], which returns the true canonical path on the
-//! filesystem. By definition, this path is also normalized. Let's say a user-supplied path is used
-//! to create a new file:
-//!
-//! ```no_run
-//! use std::path::Path;
-//!
-//! # fn main() -> std::io::Result<()> {
-//! Path::new("/srv")
-//!      .join("new_file.txt")  // /srv/new_file.txt
-//!      .canonicalize()?       // Err("No such file or directory")
-//!      .starts_with("/srv");
-//! # Ok(())
-//! # }
-//! ```
-//!
-//! [`Path::canonicalize`] returns "No such file or directory" because it requires a concrete path
-//! (that refers to an existing file or directory on the filesystem), and uses system APIs.
-//!
-//! [`NormPathExt::normalized`] eliminates the intermediate components `.`, `..`, or duplicate `/`
-//! through pure lexical processing. It is the building block for ensuring a path is restricted to
-//! some base path, or for finding the relative path between two paths. It yields the shortest
-//! lexically equivalent path.
-//!
-//! [`NormPathExt::resolved`] uses both approaches: the longest prefix whose individual components
-//! exist is canonicalized, the remaining path is normalized, and adjoined to it. The purpose is to
-//! circumvent the limitations of normalization, while still being able to apply it to paths that
-//! do not exist.
-//!
-//! ## Restricting paths
-//!
-//! In the previous web server, canonicalization or normalization does not prevent path traversal.
 //! Only accepting relative paths is not sufficient:
 //!
 //! ```
@@ -140,17 +138,17 @@
 //! ```
 //!
 //! If the user-provided path only needs to be a single path component, the programmer can forbid
-//! any string containing paths separators. Otherwise, the inner `..` components needs to be
-//! collapsed with their parent directory, which is one feature of normalization at the core of the
-//! following methods:
+//! any string containing paths separators and filter `..`. Otherwise, the inner `..` components
+//! needs to be simplified, and the prefix `..` components eliminated. Normalization is at the core
+//! of the following methods:
 //!
-//! - [`NormPathExt::rooted_join`]: join two paths with the result restricted to the first path.
-//! - [`NormPathExt::is_inside`]: check if a path is a descendant of another.
+//! - [`NormPathExt::is_inside`]: checks if a path is a descendant of another.
+//! - [`NormPathExt::rooted_join`]: joins two paths, the result is restricted to the first one.
 //!
 //! # Limitations
 //!
-//! Lexical path processing, being limited to lexical operations without interacting with the
-//! system, can change the concrete object a path points to.
+//! Lexical path processing, being limited to operations without interacting with the system, can
+//! change the concrete object a path points to.
 //!
 //! ## Normalization
 //!
@@ -334,7 +332,7 @@ pub trait NormPathExt {
     ///
     /// 1. Replace repeated `/` with a single one.
     /// 2. Eliminate `.` path components (the current directory).
-    /// 3. Collapse inner `..` path components (the parent directory), including components
+    /// 3. Simplify inner `..` path components (the parent directory), including components
     ///    preceded by a rooted path (replace `/..` by `/`).
     ///
     /// # Differences with [`Path::canonicalize`]
