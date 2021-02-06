@@ -16,13 +16,161 @@
 //!
 //! Import the following traits:
 //!
-//! ```no_run
+//! ```
 //! use npath::{NormPathExt, NormPathBufExt};
 //! ```
 //!
-//! # Windows
+//! # Overview
 //!
-//! TODO: limitations (letter case, prefixes)
+//! [`std::path`] lacks methods for lexical path processing, which:
+//!
+//! - Do not rely on system calls.
+//! - Remove the need to handle I/O errors.
+//! - Support more operations.
+//! - Allow to process paths to files or directories that do not exist.
+//!
+//! The following sections outline the main features this library provides.
+//!
+//! ## Joining paths
+//!
+//! One of the most basic operation is joining two paths. Trying to get
+//! `C:\Users\user\Documents\C:\foo` using [`Path::join`] can yield an absolute path:
+//!
+//! ```
+//! use std::path::Path;
+//!
+//! # if cfg!(windows) {
+//! assert_eq!(
+//!     Path::new(r"C:\Users\user\Documents").join(r"C:\foo"),
+//!     Path::new(r"C:\foo"),
+//! );
+//! # }
+//! ```
+//!
+//! Although paths are represented by strings, [`Path::join`] is a high-level method that processes
+//! its second argument to determine if it is absolute. The fundamental operation of appending a
+//! path to another by string concatenation is called a lexical join.
+//!
+//! [`NormPathExt::lexical_join`] joins two paths with an operation similar to string
+//! concatenation, only adding a path separator in-between if needed. [`Path::join`] is a
+//! refinement of a lexical join:
+//!
+//! ```
+//! use std::path::{Path, PathBuf};
+//! use npath::NormPathExt;
+//!
+//! fn join(base: &Path, path: &Path) -> PathBuf {
+//!     if path.is_absolute() {
+//!         path.to_path_buf()
+//!     } else {
+//!         base.lexical_join(path)
+//!     }
+//! }
+//! ```
+//!
+//! ## Normalization
+//!
+//! Web servers are exposed to path traversal vulnerabilities that allow an attacker to access file
+//! outside of some base directory. [`Path::join`] with the base directory `/srv` and a
+//! user-supplied path can yield a path outside of `/srv`:
+//!
+//! ```
+//! use std::path::{Path, PathBuf};
+//!
+//! assert_eq!(
+//!     Path::new("/srv").join("/etc/passwd"),
+//!     PathBuf::from("/etc/passwd")
+//! );
+//! ```
+//!
+//! Rust already provides [`std::fs::canonicalize`], which returns the true canonical path on the
+//! filesystem. By definition, this path is also normalized. Let's say a user-supplied path is used
+//! to create a new file:
+//!
+//! ```no_run
+//! use std::path::Path;
+//!
+//! # fn main() -> std::io::Result<()> {
+//! Path::new("/srv")
+//!      .join("new_file.txt")  // /srv/new_file.txt
+//!      .canonicalize()?       // Err("No such file or directory")
+//!      .starts_with("/srv");
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! [`Path::canonicalize`] returns "No such file or directory" because it requires a concrete path
+//! (that refers to an existing file or directory on the filesystem), and uses system APIs.
+//!
+//! [`NormPathExt::normalized`] eliminates the intermediate components `.`, `..`, or duplicate `/`
+//! through pure lexical processing. It is the building block for ensuring a path is restricted to
+//! some base path, or for finding the relative path between two paths. It yields the shortest
+//! lexically equivalent path.
+//!
+//! [`NormPathExt::resolved`] uses both approaches: the longest prefix whose individual components
+//! exist is canonicalized, the remaining path is normalized, and adjoined to it. The purpose is to
+//! circumvent the limitations of normalization, while still being able to apply it to paths that
+//! do not exist.
+//!
+//! ## Restricting paths
+//!
+//! In the previous web server, canonicalization or normalization does not prevent path traversal.
+//! Only accepting relative paths is not sufficient:
+//!
+//! ```
+//! use std::path::{Path, PathBuf};
+//! use npath::NormPathExt;
+//!
+//! assert_eq!(
+//!     Path::new("/srv").join("../etc/passwd").normalized(),
+//!     PathBuf::from("/etc/passwd")
+//! );
+//! ```
+//!
+//! Stripping `..` prefixes is not enough either:
+//!
+//! ```
+//! use std::path::{Path, PathBuf};
+//! use npath::NormPathExt;
+//!
+//! assert_eq!(
+//!     Path::new("/srv").join("foo/../../etc/passwd").normalized(),
+//!     PathBuf::from("/etc/passwd") // /etc/passwd
+//! );
+//! ```
+//!
+//! If the user-provided path only needs to be a single path component, the programmer can forbid
+//! any string containing paths separators. Otherwise, the inner `..` components needs to be
+//! collapsed with their parent directory, which is one feature of normalization at the core of the
+//! following methods:
+//!
+//! - [`NormPathExt::rooted_join`]: join two paths with the result restricted to the first path.
+//! - [`NormPathExt::is_inside`]: check if a path is a descendant of another.
+//!
+//! # Limitations
+//!
+//! Lexical path processing, being limited to lexical operations without interacting with the
+//! system, can change the concrete object a path points to.
+//!
+//! ## Normalization
+//!
+//! If `/a/b` is a symlink to `/d/e`, then for `/a/b/../c`:
+//!
+//! - [`Path::canonicalize`] returns `/d/c` if it exists, an I/O error otherwise.
+//! - [`NormPathExt::normalized`] returns `/a/c`.
+//! - [`NormPathExt::resolved`] returns `/d/c`, regardless of whether it exists or not.
+//!
+//! ## Windows
+//!
+//! Common Windows filesystems are case-insensitive, where `foo.txt`, `FOO.TXT`, and `fOo.txT`
+//! point to the same file. Additionally, the mapping from lowercase to uppercase letters in the
+//! Unicode range is stored in the filesystem, and depends on the date it was created on. This
+//! library performs case-insensitive comparisons only for the ASCII character set (the first 128
+//! Unicode characters).
+//!
+//! # TODO
+//!
+//! - Special Windows prefixes.
 
 use std::env;
 use std::ffi::OsStr;
@@ -76,6 +224,12 @@ pub trait NormPathExt {
     ///   `None`).
     /// - Returns a [`Path`] instead of an [`OsStr`](std::ffi::OsStr).
     ///
+    /// # Limitations
+    ///
+    /// This method rely on `Path::components`, which include some normalization. In particular, it
+    /// considers `foo/.` as `foo`, and so this method returns `foo` as the base name contrary to
+    /// the expected `.` with POSIX.
+    ///
     /// # Examples
     ///
     /// ```
@@ -88,6 +242,7 @@ pub trait NormPathExt {
     /// assert_eq!(Path::new("/").base(),        Path::new("/"));
     /// assert_eq!(Path::new(".").base(),        Path::new("."));
     /// assert_eq!(Path::new("..").base(),       Path::new(".."));
+    /// assert_eq!(Path::new("foo/.").base(),    Path::new("foo")); // POSIX: "."
     /// ```
     fn base(&self) -> &Path;
 
@@ -98,6 +253,12 @@ pub trait NormPathExt {
     /// # Differences with [`Path::parent`]
     ///
     /// Always returns a path (`/` when [`Path::parent`] returns `None`).
+    ///
+    /// # Limitations
+    ///
+    /// This method rely on `Path::components`, which include some normalization. In particular, it
+    /// considers `foo/.` as `foo`, and so this method returns `.` as the directory name contrary
+    /// to the expected `foo` with POSIX.
     ///
     /// # Examples
     ///
@@ -111,6 +272,7 @@ pub trait NormPathExt {
     /// assert_eq!(Path::new("/").dir(),        Path::new("/"));
     /// assert_eq!(Path::new(".").dir(),        Path::new("."));
     /// assert_eq!(Path::new("..").dir(),       Path::new("."));
+    /// assert_eq!(Path::new("foo/.").dir(),    Path::new(".")); // POSIX: "foo"
     /// ```
     fn dir(&self) -> &Path;
 
@@ -135,12 +297,18 @@ pub trait NormPathExt {
     ///   directory it just left, or if it branches off to a sibling directory, without using the
     ///   absolute path of the CWD. (Note that `self` can be re-entrant as shown in the examples.)
     ///
-    /// To circumvent these limitations, you can ensure both path are absolute using one of
-    /// these methods:
+    /// To circumvent these limitations, you can ensure both path are absolute using one of these
+    /// methods:
     ///
     /// - [`NormPathExt::absolute`]: with the limitations of [`NormPathExt::normalized`].
     /// - [`Path::canonicalize`]: without the limitations of [`NormPathExt::normalized`], but both
     ///   paths must exist on the filesystem.
+    ///
+    /// # Windows
+    ///
+    /// Paths components are compared in a case-insensitive way only for the ASCII character set
+    /// (first 128 Unicode characters). For paths containing characters outside of this range, this
+    /// method could return `false` even though `self` is inside `base` on the filesystem.
     ///
     /// # Examples
     ///
@@ -217,6 +385,26 @@ pub trait NormPathExt {
     ///
     /// If `path` is absolute, it does not replace `self`.
     ///
+    /// # Limitations
+    ///
+    /// On Windows, this method can turn paths without UNC prefixes into paths that have one.
+    ///
+    /// ```
+    /// use std::path::{Component, Path, PathBuf};
+    /// use npath::NormPathExt;
+    ///
+    /// fn has_prefix(path: &Path) -> bool {
+    ///     path.components().next().map(|c| matches!(c, Component::Prefix(_))).unwrap_or(false)
+    /// }
+    ///
+    /// # if cfg!(windows) {
+    /// assert_eq!(
+    ///     Path::new(r"\\server").lexical_join(r"c$\file.txt"),
+    ///     PathBuf::from(r"\\server\c$\file.txt"),
+    /// );
+    /// # }
+    /// ```
+    ///
     /// # Examples
     ///
     /// ```
@@ -256,9 +444,16 @@ pub trait NormPathExt {
     /// - [`Path::canonicalize`]: without the limitations of [`NormPathExt::normalized`], but both
     ///   paths must exist on the filesystem.
     ///
-    /// Note that on Windows, there is an inescapable limitation when the paths refer to different
-    /// locations (different drives, or network shares): there is no relative path between them
-    /// because they are not in the same namespace.
+    /// # Windows
+    ///
+    /// There is an inescapable limitation when the paths refer to different locations (different
+    /// drives, or network shares): there is no relative path between them because they are not in
+    /// the same namespace.
+    ///
+    /// Paths components are compared in a case-insensitive way only for the ASCII character set
+    /// (first 128 Unicode characters). For paths containing characters outside of this range, this
+    /// method could return `None` even though there is a relative path from `base` to `self` on
+    /// the filesystem.
     ///
     /// # Examples
     ///
@@ -285,15 +480,17 @@ pub trait NormPathExt {
     /// The longest prefix of `self` where each component exist on the filesystem is canonicalized,
     /// the remaining path is lexically adjoined, and the result is normalized.
     ///
+    /// If `self` is relative and no prefix component exists in the CWD (no prefix can be
+    /// canonicalized), then the result is relative (it is simply the normalized equivalent of
+    /// `self`). Use [`NormPathExt::absolute`] to ensure this method returns an absolute path.
+    ///
     /// # Differences with [`Path::canonicalize`]
     ///
     /// - This method works for paths that do not exist on the filesystem.
     /// - The path is normalized with the same limitations as [`NormPathExt::normalized`]. In
     ///   particular, a suffix might contain `..` components that can replace canonicalized
     ///   components.
-    /// - If `self` is relative and no prefix component exists in the CWD (no prefix can be
-    ///   canonicalized), then the result is relative (it is simply the normalized equivalent of
-    ///   `self`).
+    /// - The returned path can be relative.
     ///
     /// # Differences with [`NormPathExt::normalized`]
     ///
@@ -313,10 +510,6 @@ pub trait NormPathExt {
     ///
     /// [`NormPathExt::normalized`] limitations apply in most cases. If you need to get the true
     /// canonical path, use [`Path::canonicalize`].
-    ///
-    /// TODO: I'm thinking that it is equally valid to start from the end and canonicalize the
-    /// longest prefix that exist instead. That's not what C++ `weakly_canonical` does but it feels
-    /// more correct.
     ///
     /// # Examples
     ///
@@ -436,6 +629,7 @@ impl NormPathExt for Path {
             .unwrap_or_else(|| Path::new(Component::CurDir.as_os_str()))
     }
 
+    // TODO: Windows tests.
     fn is_inside<P: AsRef<Path>>(&self, base: P) -> bool {
         let base = base.as_ref().normalized();
         let path = self.normalized();
@@ -555,6 +749,10 @@ impl NormPathExt for Path {
         }
     }
 
+    // TODO: I'm thinking that it is equally valid to start from the end and canonicalize the
+    // longest prefix that exist instead. That's not what C++ `weakly_canonical` does but it feels
+    // more correct.
+    // TODO: Some form of tests.
     fn resolved(&self) -> Result<PathBuf> {
         if self.exists() {
             return self.canonicalize();
@@ -586,6 +784,7 @@ impl NormPathExt for Path {
         self.lexical_join(normalize_rooted(path.as_ref()))
     }
 
+    // TODO: Not case insensitive on Windows.
     // <https://github.com/django/django/blob/master/django/utils/_os.py>
     fn try_rooted_join<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf> {
         // Make absolute and normalize all paths
@@ -879,7 +1078,6 @@ mod tests {
         };
     }
 
-    // TODO: Windows
     #[test]
     #[cfg(unix)]
     fn test_is_inside() {
