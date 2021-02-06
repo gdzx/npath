@@ -224,12 +224,6 @@ pub trait NormPathExt {
     ///   `None`).
     /// - Returns a [`Path`] instead of an [`OsStr`](std::ffi::OsStr).
     ///
-    /// # Limitations
-    ///
-    /// This method rely on `Path::components`, which include some normalization. In particular, it
-    /// considers `foo/.` as `foo`, and so this method returns `foo` as the base name contrary to
-    /// the expected `.` with POSIX.
-    ///
     /// # Examples
     ///
     /// ```
@@ -238,11 +232,11 @@ pub trait NormPathExt {
     ///
     /// assert_eq!(Path::new("/usr/lib").base(), Path::new("lib"));
     /// assert_eq!(Path::new("/usr/").base(),    Path::new("usr"));
+    /// assert_eq!(Path::new("usr/.").base(),    Path::new("."));
     /// assert_eq!(Path::new("usr").base(),      Path::new("usr"));
     /// assert_eq!(Path::new("/").base(),        Path::new("/"));
     /// assert_eq!(Path::new(".").base(),        Path::new("."));
     /// assert_eq!(Path::new("..").base(),       Path::new(".."));
-    /// assert_eq!(Path::new("foo/.").base(),    Path::new("foo")); // POSIX: "."
     /// ```
     fn base(&self) -> &Path;
 
@@ -254,12 +248,6 @@ pub trait NormPathExt {
     ///
     /// Always returns a path (`/` when [`Path::parent`] returns `None`).
     ///
-    /// # Limitations
-    ///
-    /// This method rely on `Path::components`, which include some normalization. In particular, it
-    /// considers `foo/.` as `foo`, and so this method returns `.` as the directory name contrary
-    /// to the expected `foo` with POSIX.
-    ///
     /// # Examples
     ///
     /// ```
@@ -268,11 +256,11 @@ pub trait NormPathExt {
     ///
     /// assert_eq!(Path::new("/usr/lib").dir(), Path::new("/usr"));
     /// assert_eq!(Path::new("/usr/").dir(),    Path::new("/"));
+    /// assert_eq!(Path::new("usr/.").dir(),    Path::new("usr"));
     /// assert_eq!(Path::new("usr").dir(),      Path::new("."));
     /// assert_eq!(Path::new("/").dir(),        Path::new("/"));
     /// assert_eq!(Path::new(".").dir(),        Path::new("."));
     /// assert_eq!(Path::new("..").dir(),       Path::new("."));
-    /// assert_eq!(Path::new("foo/.").dir(),    Path::new(".")); // POSIX: "foo"
     /// ```
     fn dir(&self) -> &Path;
 
@@ -602,6 +590,10 @@ impl NormPathExt for Path {
     }
 
     fn base(&self) -> &Path {
+        if sys::ends_with_sep_dot(self) {
+            return Path::new(Component::CurDir.as_os_str());
+        }
+
         self.components()
             .next_back()
             .and_then(|c| match c {
@@ -612,6 +604,11 @@ impl NormPathExt for Path {
     }
 
     fn dir(&self) -> &Path {
+        if sys::ends_with_sep_dot(self) {
+            // HACK: Trims the final "///.".
+            return self.components().as_path();
+        }
+
         let mut comps = self.components();
         comps
             .next_back()
@@ -902,6 +899,12 @@ mod sys {
     pub fn is_separator(b: u8) -> bool {
         is_sep(b as char)
     }
+
+    pub fn ends_with_sep_dot(path: &Path) -> bool {
+        let path = to_os_encoding(path);
+        let len = path.len();
+        len >= 2 && path[len - 1] == b'.' && is_separator(path[len - 2])
+    }
 }
 
 #[cfg(windows)]
@@ -924,6 +927,12 @@ mod sys {
 
     pub fn is_separator(w: u16) -> bool {
         char::try_from(w as u32).map(is_sep).unwrap_or(false)
+    }
+
+    pub fn ends_with_sep_dot(path: &Path) -> bool {
+        let path = to_os_encoding(path);
+        let len = path.len();
+        len >= 2 && path[len - 1] == b'.' as u16 && is_separator(path[len - 2])
     }
 }
 
@@ -1003,7 +1012,7 @@ mod tests {
     fn test_base() {
         assert_eq!(base!(""), ".");
         assert_eq!(base!("."), ".");
-        assert_eq!(base!("/."), "/"); // POSIX: "."
+        assert_eq!(base!("/."), ".");
         assert_eq!(base!("/"), "/");
         assert_eq!(base!("////"), "/");
         assert_eq!(base!("x/"), "x");
@@ -1051,7 +1060,7 @@ mod tests {
         assert_eq!(dir!("a/b/c."), "a/b");
         assert_eq!(dir!("a/b/c.x"), "a/b");
 
-        assert_eq!(dir!("x/."), "."); // POSIX: "x"
+        assert_eq!(dir!("x/."), "x");
 
         // Unnormalized
         assert_eq!(dir!("/../x"), "/..");
