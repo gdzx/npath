@@ -402,10 +402,10 @@ pub trait NormPathExt {
 impl NormPathExt for Path {
     fn absolute(&self) -> Result<PathBuf> {
         if !self.has_root() {
-            return Ok(env::current_dir()?.join(self));
+            Ok(env::current_dir()?.join(self))
+        } else {
+            Ok(self.to_path_buf())
         }
-
-        Ok(self.to_path_buf())
     }
 
     fn base(&self) -> &Path {
