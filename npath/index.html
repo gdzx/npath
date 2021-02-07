@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `npath` crate."><meta name="keywords" content="rust, rustlang, rust-lang, npath"><title>npath - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../ayu.css" disabled ><script id="default-settings"></script><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../favicon-16x16.png">
 <link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../npath/index.html'><div class='logo-container rust-logo'><img src='../rust-logo.png' alt='logo'></div></a><p class="location">Crate npath</p><div class="block version"><p>Version 0.1.0</p></div><div class="sidebar-elems"><a id="all-types" href="all.html"><p>See all npath's items</p></a><div class="block items"><ul><li><a href="#traits">Traits</a></li></ul></div><p class="location"></p><div id="sidebar-vars" data-name="npath" data-ty="mod" data-relpath="../"></div></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Crate <a class="mod" href="">npath</a></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../src/npath/lib.rs.html#1-1552" title="goto source code">[src]</a></span></h1><div class="docblock"><p>Normalized Paths</p>
+                <a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Crate <a class="mod" href="">npath</a></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../src/npath/lib.rs.html#1-1550" title="goto source code">[src]</a></span></h1><div class="docblock"><p>Normalized Paths</p>
 <p><code>npath</code> is a Rust library providing methods for cross-platform lexical path processing and
 normalization. These methods are implemented in extension traits to <a href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html" title="Path"><code>Path</code></a> and <a href="https://doc.rust-lang.org/nightly/std/path/struct.PathBuf.html" title="PathBuf"><code>PathBuf</code></a>.</p>
 <h1 id="usage" class="section-header"><a href="#usage">Usage</a></h1>
@@ -24,18 +24,18 @@ npath = { git = &quot;https://github.com/gdzx/npath&quot; }
 <p>The following sections outline the main features this library provides.</p>
 <h2 id="joining-paths" class="section-header"><a href="#joining-paths">Joining paths</a></h2>
 <p>One of the most basic operation is joining two paths. Trying to get
-<code>C:\Users\user\Documents\C:\foo</code> using <a href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html#method.join" title="Path::join"><code>Path::join</code></a> can yield an absolute path:</p>
+<code>C:\Users\User\Documents\C:\foo</code> using <a href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html#method.join" title="Path::join"><code>Path::join</code></a> can yield an entirely different path:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>;
 
 <span class="macro">assert_eq</span><span class="macro">!</span>(
-    <span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">r&quot;C:\Users\user\Documents&quot;</span>).<span class="ident">join</span>(<span class="string">r&quot;C:\foo&quot;</span>),
+    <span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">r&quot;C:\Users\User\Documents&quot;</span>).<span class="ident">join</span>(<span class="string">r&quot;C:\foo&quot;</span>),
     <span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">r&quot;C:\foo&quot;</span>),
 );</pre></div>
 <p>Although paths are represented by strings, <a href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html#method.join" title="Path::join"><code>Path::join</code></a> is a high-level method that processes
-its second argument to determine if it is absolute. The fundamental operation of appending a
-path to another by string concatenation is called a lexical join.</p>
+its second argument to determine if it is absolute. On the contrary, the fundamental operation
+of appending a path to another by string concatenation is called a <em>lexical join</em>.</p>
 <p><a href="../npath/trait.NormPathExt.html#tymethod.lexical_join" title="NormPathExt::lexical_join"><code>NormPathExt::lexical_join</code></a> joins two paths with an operation similar to string
 concatenation, only adding a path separator in-between if needed. <a href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html#method.join" title="Path::join"><code>Path::join</code></a> is a
 refinement of a lexical join:</p>
@@ -52,8 +52,30 @@ refinement of a lexical join:</p>
     }
 }</pre></div>
 <h2 id="normalization" class="section-header"><a href="#normalization">Normalization</a></h2>
-<p>Web servers are exposed to path traversal vulnerabilities that allow an attacker to access file
-outside of some base directory. <a href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html#method.join" title="Path::join"><code>Path::join</code></a> with the base directory <code>/srv</code> and a
+<p>If you want to check whether two paths are identical, you need to transform them into a form
+that allows comparison. Rust provides <a href="https://doc.rust-lang.org/nightly/std/fs/fn.canonicalize.html" title="std::fs::canonicalize"><code>std::fs::canonicalize</code></a>, which returns the true
+canonical path on the filesystem:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>;
+
+<span class="macro">assert_eq</span><span class="macro">!</span>(
+    <span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">&quot;/srv&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;file.txt&quot;</span>).<span class="ident">canonicalize</span>()<span class="question-mark">?</span>,
+    <span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">&quot;/srv&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;bar//../file.txt&quot;</span>).<span class="ident">canonicalize</span>()<span class="question-mark">?</span>,
+);</pre></div>
+<p><a href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html#method.canonicalize" title="Path::canonicalize"><code>Path::canonicalize</code></a> requires a concrete path (that refers to an existing file or directory
+on the filesystem) or it will return an error. <a href="../npath/trait.NormPathExt.html#tymethod.normalized" title="NormPathExt::normalized"><code>NormPathExt::normalized</code></a> eliminates the
+intermediate components <code>.</code>, <code>..</code>, or duplicate <code>/</code> through pure lexical processing. It is the
+building block for comparing paths, ensuring a path is restricted to some base path, or for
+finding the relative path between two paths. It yields the shortest lexically equivalent path:
+it is <em>normalized</em>.</p>
+<p><a href="../npath/trait.NormPathExt.html#tymethod.resolved" title="NormPathExt::resolved"><code>NormPathExt::resolved</code></a> uses both approaches: the longest prefix whose individual components
+exist is canonicalized, the remaining path is normalized, and adjoined to it. The purpose is to
+circumvent the limitations of normalization, while still being able to apply it to paths that
+do not exist.</p>
+<h2 id="restricting-paths" class="section-header"><a href="#restricting-paths">Restricting paths</a></h2>
+<p>Web servers are exposed to path traversal vulnerabilities that allow an attacker to access
+files outside of some base directory. <a href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html#method.join" title="Path::join"><code>Path::join</code></a> with the base directory <code>/srv</code> and a
 user-supplied path can yield a path outside of <code>/srv</code>:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered">
@@ -63,30 +85,7 @@ user-supplied path can yield a path outside of <code>/srv</code>:</p>
     <span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">&quot;/srv&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;/etc/passwd&quot;</span>),
     <span class="ident">PathBuf</span>::<span class="ident">from</span>(<span class="string">&quot;/etc/passwd&quot;</span>)
 );</pre></div>
-<p>Rust already provides <a href="https://doc.rust-lang.org/nightly/std/fs/fn.canonicalize.html" title="std::fs::canonicalize"><code>std::fs::canonicalize</code></a>, which returns the true canonical path on the
-filesystem. By definition, this path is also normalized. Let's say a user-supplied path is used
-to create a new file:</p>
-
-<div class="example-wrap"><pre class="rust rust-example-rendered">
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>;
-
-<span class="ident">Path</span>::<span class="ident">new</span>(<span class="string">&quot;/srv&quot;</span>)
-     .<span class="ident">join</span>(<span class="string">&quot;new_file.txt&quot;</span>)  <span class="comment">// /srv/new_file.txt</span>
-     .<span class="ident">canonicalize</span>()<span class="question-mark">?</span>       <span class="comment">// Err(&quot;No such file or directory&quot;)</span>
-     .<span class="ident">starts_with</span>(<span class="string">&quot;/srv&quot;</span>);</pre></div>
-<p><a href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html#method.canonicalize" title="Path::canonicalize"><code>Path::canonicalize</code></a> returns &quot;No such file or directory&quot; because it requires a concrete path
-(that refers to an existing file or directory on the filesystem), and uses system APIs.</p>
-<p><a href="../npath/trait.NormPathExt.html#tymethod.normalized" title="NormPathExt::normalized"><code>NormPathExt::normalized</code></a> eliminates the intermediate components <code>.</code>, <code>..</code>, or duplicate <code>/</code>
-through pure lexical processing. It is the building block for ensuring a path is restricted to
-some base path, or for finding the relative path between two paths. It yields the shortest
-lexically equivalent path.</p>
-<p><a href="../npath/trait.NormPathExt.html#tymethod.resolved" title="NormPathExt::resolved"><code>NormPathExt::resolved</code></a> uses both approaches: the longest prefix whose individual components
-exist is canonicalized, the remaining path is normalized, and adjoined to it. The purpose is to
-circumvent the limitations of normalization, while still being able to apply it to paths that
-do not exist.</p>
-<h2 id="restricting-paths" class="section-header"><a href="#restricting-paths">Restricting paths</a></h2>
-<p>In the previous web server, canonicalization or normalization does not prevent path traversal.
-Only accepting relative paths is not sufficient:</p>
+<p>Only accepting relative paths is not sufficient:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
@@ -107,16 +106,16 @@ Only accepting relative paths is not sufficient:</p>
     <span class="ident">PathBuf</span>::<span class="ident">from</span>(<span class="string">&quot;/etc/passwd&quot;</span>) <span class="comment">// /etc/passwd</span>
 );</pre></div>
 <p>If the user-provided path only needs to be a single path component, the programmer can forbid
-any string containing paths separators. Otherwise, the inner <code>..</code> components needs to be
-collapsed with their parent directory, which is one feature of normalization at the core of the
-following methods:</p>
+any string containing paths separators and filter <code>..</code>. Otherwise, the inner <code>..</code> components
+needs to be simplified, and the prefix <code>..</code> components eliminated. Normalization is at the core
+of the following methods:</p>
 <ul>
-<li><a href="../npath/trait.NormPathExt.html#tymethod.rooted_join" title="NormPathExt::rooted_join"><code>NormPathExt::rooted_join</code></a>: join two paths with the result restricted to the first path.</li>
-<li><a href="../npath/trait.NormPathExt.html#tymethod.is_inside" title="NormPathExt::is_inside"><code>NormPathExt::is_inside</code></a>: check if a path is a descendant of another.</li>
+<li><a href="../npath/trait.NormPathExt.html#tymethod.is_inside" title="NormPathExt::is_inside"><code>NormPathExt::is_inside</code></a>: checks if a path is a descendant of another.</li>
+<li><a href="../npath/trait.NormPathExt.html#tymethod.rooted_join" title="NormPathExt::rooted_join"><code>NormPathExt::rooted_join</code></a>: joins two paths, the result is restricted to the first one.</li>
 </ul>
 <h1 id="limitations" class="section-header"><a href="#limitations">Limitations</a></h1>
-<p>Lexical path processing, being limited to lexical operations without interacting with the
-system, can change the concrete object a path points to.</p>
+<p>Lexical path processing, being limited to operations without interacting with the system, can
+change the concrete object a path points to.</p>
 <h2 id="normalization-1" class="section-header"><a href="#normalization-1">Normalization</a></h2>
 <p>If <code>/a/b</code> is a symlink to <code>/d/e</code>, then for <code>/a/b/../c</code>:</p>
 <ul>
