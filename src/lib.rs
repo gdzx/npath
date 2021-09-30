@@ -1,5 +1,3 @@
-#![feature(osstring_ascii)]
-
 //! Normalized Paths
 //!
 //! `npath` is a Rust library providing methods for cross-platform lexical path processing and
