@@ -809,7 +809,7 @@ fn lexical_join(base: &Path, path: &Path) -> PathBuf {
     let prefix_is_disk = matches!(prefix.map(|p| p.kind()), Some(Prefix::Disk(_)));
     let prefix_len = prefix.map(|p| p.as_os_str().len());
 
-    let mut base = sys::to_os_encoding(&base).into_owned();
+    let mut base = sys::to_os_encoding(base).into_owned();
 
     let path = sys::to_os_encoding(path);
     let mut path = &path[..];
